@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@duckdb/node-api':
-        specifier: 1.3.1-alpha.23
-        version: 1.3.1-alpha.23
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.59.0(react@19.1.0))
@@ -235,37 +232,6 @@ packages:
 
   '@coinbase/wallet-sdk@4.3.3':
     resolution: {integrity: sha512-h8gMLQNvP5TIJVXFOyQZaxbi1Mg5alFR4Z2/PEIngdyXZEoQGcVhzyQGuDa3t9zpllxvqfAaKfzDhsfCo+nhSQ==}
-
-  '@duckdb/node-api@1.3.1-alpha.23':
-    resolution: {integrity: sha512-D2dug8GMCC/PNkrB37gik0Wm74J3/JFQxIrEk7c02nK74BmLrZsxTRG5cLc6fqJuqj+AZ31jjgWroUtAaHSN/A==}
-
-  '@duckdb/node-bindings-darwin-arm64@1.3.1-alpha.23':
-    resolution: {integrity: sha512-4UbDqkp+vOACjkOp6kQiTtrkzZw9CFb1GIEcDLZ+iySka0fz5sNNldJUNPuCbWm0Racu17OBzoSXQqF5Q0KUmQ==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@duckdb/node-bindings-darwin-x64@1.3.1-alpha.23':
-    resolution: {integrity: sha512-qdBsiFR5dPswAwDiCqE227cP18618uKX5E3U5qEk0bsb9C8f+I+k3aHl8nLjE0vXOCxBUeI6xr3U9KskjyixpA==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@duckdb/node-bindings-linux-arm64@1.3.1-alpha.23':
-    resolution: {integrity: sha512-kqWaYd6AkpLkJbIPd4UqujQE2G/QCriLIgFkpUgWVqP3yyCL/Oq+5oRvRSdUsuFJQqHztj8L3ZOy76xd5q12Ww==}
-    cpu: [arm64]
-    os: [linux]
-
-  '@duckdb/node-bindings-linux-x64@1.3.1-alpha.23':
-    resolution: {integrity: sha512-lANN+JYoBTqyOF0dGPiXz8r9+GGs6mm5nwB08boWYpQCjdoG2gFpK6XvT56HO+t01wbKIngDNrdThjqdZW9+Aw==}
-    cpu: [x64]
-    os: [linux]
-
-  '@duckdb/node-bindings-win32-x64@1.3.1-alpha.23':
-    resolution: {integrity: sha512-bYBLYPAIs4KTSnTtqsRnjBH1Hgu9QVa3Yxio4TYktneRG7rHeX89nKcfszLLIkSUt6xhRNwYoeSh/HbXmx46fA==}
-    cpu: [x64]
-    os: [win32]
-
-  '@duckdb/node-bindings@1.3.1-alpha.23':
-    resolution: {integrity: sha512-uVFuy0bfV/XHRtMKZMDjaONbZplGXBOep20DZqA8BbWwWBnc37XMZoXZcykLRXdMVvzUll13mwfL1InDa9k1gw==}
 
   '@ecies/ciphers@0.2.3':
     resolution: {integrity: sha512-tapn6XhOueMwht3E2UzY0ZZjYokdaw9XtL9kEyjhQ/Fb9vL9xTFbOaI+fV0AWvTpYu4BNloC6getKW6NtSg4mA==}
@@ -3632,33 +3598,6 @@ snapshots:
       clsx: 1.2.1
       eventemitter3: 5.0.1
       preact: 10.26.9
-
-  '@duckdb/node-api@1.3.1-alpha.23':
-    dependencies:
-      '@duckdb/node-bindings': 1.3.1-alpha.23
-
-  '@duckdb/node-bindings-darwin-arm64@1.3.1-alpha.23':
-    optional: true
-
-  '@duckdb/node-bindings-darwin-x64@1.3.1-alpha.23':
-    optional: true
-
-  '@duckdb/node-bindings-linux-arm64@1.3.1-alpha.23':
-    optional: true
-
-  '@duckdb/node-bindings-linux-x64@1.3.1-alpha.23':
-    optional: true
-
-  '@duckdb/node-bindings-win32-x64@1.3.1-alpha.23':
-    optional: true
-
-  '@duckdb/node-bindings@1.3.1-alpha.23':
-    optionalDependencies:
-      '@duckdb/node-bindings-darwin-arm64': 1.3.1-alpha.23
-      '@duckdb/node-bindings-darwin-x64': 1.3.1-alpha.23
-      '@duckdb/node-bindings-linux-arm64': 1.3.1-alpha.23
-      '@duckdb/node-bindings-linux-x64': 1.3.1-alpha.23
-      '@duckdb/node-bindings-win32-x64': 1.3.1-alpha.23
 
   '@ecies/ciphers@0.2.3(@noble/ciphers@1.3.0)':
     dependencies:
