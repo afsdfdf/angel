@@ -12,7 +12,9 @@ import {
   User, 
   Users, 
   Menu,
-  X
+  X,
+  MessageCircle,
+  Twitter
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -53,7 +55,7 @@ export default function PresalePage() {
             {/* 风琴导航菜单 */}
             <div className={cn(
               "transition-all duration-300 ease-in-out overflow-hidden",
-              isNavOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+              isNavOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
             )}>
               <div className="border-t">
                 {navItems.map((item, index) => {
@@ -72,6 +74,49 @@ export default function PresalePage() {
                     </Link>
                   )
                 })}
+                
+                {/* 社交媒体链接 */}
+                <div className="border-t mt-2 pt-2">
+                  <div className="px-4 py-2">
+                    <span className="text-xs text-gray-500 font-medium">社交媒体</span>
+                  </div>
+                  
+                  {/* Telegram */}
+                  <a 
+                    href="https://t.me/angecoin1" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full h-12 px-4 rounded-none justify-start gap-3 hover:bg-blue-50 hover:text-blue-600"
+                      onClick={() => setIsNavOpen(false)}
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span className="text-sm">Telegram</span>
+                    </Button>
+                  </a>
+                  
+                  {/* Twitter */}
+                  <a 
+                    href="https://twitter.com/angelcoin" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full h-12 px-4 rounded-none justify-start gap-3 hover:bg-blue-50 hover:text-blue-600"
+                      onClick={() => setIsNavOpen(false)}
+                    >
+                      <Twitter className="w-4 h-4" />
+                      <span className="text-sm">Twitter</span>
+                    </Button>
+                  </a>
+                </div>
               </div>
             </div>
           </CardContent>
