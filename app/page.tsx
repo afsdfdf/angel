@@ -16,15 +16,11 @@ import { InteractiveMap } from "@/components/interactive-map"
 import { TokenLogo } from "@/components/token-logo"
 import { PageHeader } from "@/components/page-header"
 import { AngelBrand } from "@/components/angel-logo"
-import type { User } from "@/lib/database"
+import { useAuth } from "@/lib/auth-context"
 
 export default function HomePage() {
-  const [user, setUser] = useState<User | null>(null)
+  const { user, isAuthenticated } = useAuth()
   const [loading, setLoading] = useState(false)
-
-  const handleUserChange = (newUser: User | null) => {
-    setUser(newUser)
-  }
 
   return (
     <MemeBackground variant="premium" overlay={true}>
@@ -32,7 +28,6 @@ export default function HomePage() {
         title="天使加密" 
         emoji="😇" 
         notifications={3}
-        onUserChange={handleUserChange}
         showBalance={true}
         angelBalance={user?.angel_balance || 0}
       />
@@ -72,6 +67,20 @@ export default function HomePage() {
               </div>
             </MemeCard>
           </Link>
+
+          {/* 钱包连接提示（如果未连接） */}
+          {!isAuthenticated && (
+            <MemeCard className="p-6 bg-white/95 backdrop-blur-sm border-0 shadow-lg rounded-3xl">
+              <div className="text-center">
+                <div className="text-3xl mb-3">👛</div>
+                <h3 className="text-lg font-bold text-gray-800 mb-2">连接钱包开始</h3>
+                <p className="text-gray-600 mb-4">
+                  连接您的钱包以查看余额、邀请朋友和获得奖励
+                </p>
+                <WalletConnect />
+              </div>
+            </MemeCard>
+          )}
 
           {/* 快速统计 - WEB3 风格 */}
           <div className="grid grid-cols-2 gap-4">
@@ -248,20 +257,19 @@ export default function HomePage() {
               <p className="text-pink-100 text-sm mb-4">
                 每邀请一位好友，您和好友都可获得 100 ANGEL 奖励
               </p>
-              <MemeButton 
-                variant="glass" 
-                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
-              >
-                立即邀请
-              </MemeButton>
+              <Link href="/profile">
+                <MemeButton 
+                  variant="glass" 
+                  className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                >
+                  立即邀请
+                </MemeButton>
+              </Link>
             </div>
           </MemeCard>
 
-
         </div>
       </div>
-      
-
     </MemeBackground>
   )
 }

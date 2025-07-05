@@ -156,8 +156,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // 生成邀请链接
   const generateInviteLink = (): string => {
     if (!user) return '';
-    const baseUrl = isClient && typeof window !== 'undefined' ? window.location.origin : '';
-    return `${baseUrl}?ref=${user.referral_code}`;
+    return DatabaseService.generateInviteLink(user.wallet_address);
   };
 
   // 刷新用户信息

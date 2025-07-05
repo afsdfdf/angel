@@ -105,93 +105,18 @@ export default function AdminPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      // 模拟数据加载
-      const mockUsers: User[] = [
-        {
-          id: '1',
-          wallet_address: '0x1234567890abcdef1234567890abcdef12345678',
-          email: 'user1@example.com',
-          username: 'Angel用户1',
-          angel_balance: 1500,
-          referral_code: 'ANGEL001',
-          referred_by: '',
-          total_referrals: 5,
-          total_earned: 2500,
-          is_active: true,
-          created_at: '2024-01-15T10:00:00Z',
-          updated_at: '2024-01-20T15:30:00Z'
-        },
-        {
-          id: '2',
-          wallet_address: '0xabcdef1234567890abcdef1234567890abcdef12',
-          email: 'user2@example.com',
-          username: 'Angel用户2',
-          angel_balance: 800,
-          referral_code: 'ANGEL002',
-          referred_by: 'ANGEL001',
-          total_referrals: 2,
-          total_earned: 1200,
-          is_active: true,
-          created_at: '2024-01-16T11:00:00Z',
-          updated_at: '2024-01-21T16:30:00Z'
-        },
-        {
-          id: '3',
-          wallet_address: '0x9876543210fedcba9876543210fedcba98765432',
-          email: 'user3@example.com',
-          username: 'Angel用户3',
-          angel_balance: 300,
-          referral_code: 'ANGEL003',
-          referred_by: 'ANGEL001',
-          total_referrals: 0,
-          total_earned: 300,
-          is_active: false,
-          created_at: '2024-01-17T12:00:00Z',
-          updated_at: '2024-01-22T17:30:00Z'
-        }
-      ]
-
-      const mockInvitations: Invitation[] = [
-        {
-          id: '1',
-          inviter_id: '1',
-          invitee_id: '2',
-          invitee_wallet_address: '0xabcdef1234567890abcdef1234567890abcdef12',
-          referral_code: 'ANGEL001',
-          invite_link: 'https://angel.app?ref=ANGEL001',
-          status: 'accepted',
-          level: 1,
-          reward_amount: 500,
-          reward_claimed: true,
-          created_at: '2024-01-16T10:00:00Z',
-          accepted_at: '2024-01-16T11:00:00Z',
-          expires_at: '2024-02-16T10:00:00Z'
-        },
-        {
-          id: '2',
-          inviter_id: '1',
-          invitee_id: '3',
-          invitee_wallet_address: '0x9876543210fedcba9876543210fedcba98765432',
-          referral_code: 'ANGEL001',
-          invite_link: 'https://angel.app?ref=ANGEL001',
-          status: 'accepted',
-          level: 1,
-          reward_amount: 500,
-          reward_claimed: true,
-          created_at: '2024-01-17T10:00:00Z',
-          accepted_at: '2024-01-17T12:00:00Z',
-          expires_at: '2024-02-17T10:00:00Z'
-        }
-      ]
-
-      setUsers(mockUsers)
-      setInvitations(mockInvitations)
+      // 使用真实的数据库服务
+      const allUsers = await DatabaseService.getAllUsers()
+      const allInvitations = await DatabaseService.getAllInvitations()
+      
+      setUsers(allUsers)
+      setInvitations(allInvitations)
       
       // 计算统计数据
-      const totalUsers = mockUsers.length
-      const activeUsers = mockUsers.filter(user => user.is_active).length
-      const totalInvitations = mockInvitations.length
-      const totalTokensDistributed = mockUsers.reduce((sum, user) => sum + user.angel_balance, 0)
+      const totalUsers = allUsers.length
+      const activeUsers = allUsers.filter(user => user.is_active).length
+      const totalInvitations = allInvitations.length
+      const totalTokensDistributed = allUsers.reduce((sum, user) => sum + (user.angel_balance || 0), 0)
 
       setStats({
         totalUsers,
@@ -201,6 +126,15 @@ export default function AdminPage() {
       })
     } catch (error) {
       console.error('加载数据失败:', error)
+      // 如果数据库连接失败，显示空数据
+      setUsers([])
+      setInvitations([])
+      setStats({
+        totalUsers: 0,
+        activeUsers: 0,
+        totalInvitations: 0,
+        totalTokensDistributed: 0
+      })
     } finally {
       setLoading(false)
     }

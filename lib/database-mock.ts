@@ -404,6 +404,17 @@ export class MockDatabaseService {
     return `${config.app.url}/invite/${walletAddress}`;
   }
 
+  // 管理员方法
+  static async getAllUsers(): Promise<User[]> {
+    console.log('🎭 Mock: Get all users', mockUsers.length);
+    return [...mockUsers];
+  }
+
+  static async getAllInvitations(): Promise<Invitation[]> {
+    console.log('🎭 Mock: Get all invitations', mockInvitations.length);
+    return [...mockInvitations];
+  }
+
   // 调试方法
   static getMockData() {
     return {

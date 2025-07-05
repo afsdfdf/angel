@@ -67,6 +67,7 @@ export interface User {
   referred_by?: string;
   total_referrals: number;
   total_earned: number;
+  level?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -435,5 +436,44 @@ export class DatabaseService {
 
   static generateInviteLink(walletAddress: string): string {
     return `${config.app.url}/invite/${walletAddress}`;
+  }
+
+  // 管理员方法
+  static async getAllUsers(): Promise<User[]> {
+    try {
+      if (isUsingMockMode) {
+        return MockDatabaseService.getAllUsers();
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('获取所有用户失败:', error);
+      return [];
+    }
+  }
+
+  static async getAllInvitations(): Promise<Invitation[]> {
+    try {
+      if (isUsingMockMode) {
+        return MockDatabaseService.getAllInvitations();
+      }
+
+      const { data, error } = await supabase
+        .from('invitations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('获取所有邀请失败:', error);
+      return [];
+    }
   }
 }
