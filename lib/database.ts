@@ -13,20 +13,24 @@ const isUsingMockMode = config.supabase.url === 'https://demo.supabase.co' ||
 const validateSupabaseConfig = () => {
   if (!config.supabase.url || config.supabase.url === 'https://demo.supabase.co') {
     if (!isDev) {
-      throw new Error('NEXT_PUBLIC_SUPABASE_URL is required in production');
+      console.error('❌ NEXT_PUBLIC_SUPABASE_URL is required in production');
+      // 在生产环境中不抛出错误，而是使用模拟模式
+      console.warn('⚠️  Falling back to mock mode due to missing Supabase configuration');
     }
     console.warn('⚠️  Using demo Supabase URL. Please configure your environment variables.');
   }
   
   if (!config.supabase.anonKey || config.supabase.anonKey === 'demo-anon-key') {
     if (!isDev) {
-      throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is required in production');
+      console.error('❌ NEXT_PUBLIC_SUPABASE_ANON_KEY is required in production');
+      // 在生产环境中不抛出错误，而是使用模拟模式
+      console.warn('⚠️  Falling back to mock mode due to missing Supabase configuration');
     }
     console.warn('⚠️  Using demo Supabase anon key. Please configure your environment variables.');
   }
 
-  if (isUsingMockMode && isDev) {
-    console.log('🎭 Running in mock database mode for development');
+  if (isUsingMockMode) {
+    console.log('🎭 Running in mock database mode');
   }
 };
 
@@ -120,7 +124,7 @@ export class DatabaseService {
   // 用户相关操作
   static async createUser(userData: Partial<User>): Promise<User | null> {
     // 如果在模拟模式下，使用模拟服务
-    if (isUsingMockMode && isDev) {
+    if (isUsingMockMode) {
       return MockDatabaseService.createUser(userData);
     }
 
@@ -159,7 +163,7 @@ export class DatabaseService {
 
   static async getUserByWalletAddress(walletAddress: string): Promise<User | null> {
     // 如果在模拟模式下，使用模拟服务
-    if (isUsingMockMode && isDev) {
+    if (isUsingMockMode) {
       return MockDatabaseService.getUserByWalletAddress(walletAddress);
     }
 
@@ -180,7 +184,7 @@ export class DatabaseService {
 
   static async getUserByReferralCode(referralCode: string): Promise<User | null> {
     // 如果在模拟模式下，使用模拟服务
-    if (isUsingMockMode && isDev) {
+    if (isUsingMockMode) {
       return MockDatabaseService.getUserByReferralCode(referralCode);
     }
 

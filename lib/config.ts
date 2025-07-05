@@ -14,14 +14,14 @@ export const config = {
   
   // NextAuth配置
   nextAuth: {
-    url: process.env.NEXTAUTH_URL || 'http://localhost:3000',
+    url: process.env.NEXTAUTH_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'),
     secret: process.env.NEXTAUTH_SECRET || 'your-secret-key',
   },
   
   // 应用配置
   app: {
     name: process.env.NEXT_PUBLIC_APP_NAME || 'Angel Crypto App',
-    url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    url: process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'),
   },
   
   // 支持的区块链网络

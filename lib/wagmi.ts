@@ -33,6 +33,7 @@ export const wagmiConfig = createConfig({
     [polygon.id]: http(),
     [bsc.id]: http(),
   },
+  ssr: false, // 禁用服务器端渲染以避免hydration错误
 });
 
 // 导出类型
