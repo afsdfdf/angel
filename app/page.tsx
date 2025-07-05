@@ -56,6 +56,23 @@ export default function HomePage() {
             </div>
           </MemeCard>
 
+          {/* 预售按钮 - 醒目位置 */}
+          <Link href="/presale">
+            <MemeCard className="p-6 bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 text-white border-0 shadow-2xl rounded-3xl hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer hover-glow-primary animate-pulse">
+              <div className="text-center">
+                <div className="text-4xl mb-3">🚀</div>
+                <h2 className="text-2xl font-bold mb-2">ANGEL 代币预售</h2>
+                <p className="text-white/90 text-sm mb-4">
+                  限时预售中 • 早鸟优惠 • 立即参与
+                </p>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-lg font-bold">立即购买</span>
+                  <span className="text-2xl">→</span>
+                </div>
+              </div>
+            </MemeCard>
+          </Link>
+
           {/* 快速统计 - WEB3 风格 */}
           <div className="grid grid-cols-2 gap-4">
             <MemeCard className="p-4 glass-card border-0 shadow-angel-accent rounded-2xl touch-feedback hover-glow-accent">
