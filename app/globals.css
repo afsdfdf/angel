@@ -1,0 +1,765 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* WEB3 Angel Theme - Clean & Modern Color System */
+    --background: 0 0% 100%;
+    --foreground: 240 15% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 15% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 15% 9%;
+    --primary: 280 100% 65%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 15% 9%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 6% 46%;
+    --accent: 240 5% 96%;
+    --accent-foreground: 240 15% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 280 100% 65%;
+    --radius: 1rem;
+    
+    /* WEB3 Angel Brand Colors - High Contrast */
+    --angel-primary: 280 100% 65%;        /* 主紫色 #A855F7 */
+    --angel-primary-dark: 280 100% 50%;   /* 深紫色 */
+    --angel-primary-light: 280 100% 80%;  /* 浅紫色 */
+    
+    --angel-secondary: 328 100% 60%;      /* 粉色 #E91E63 */
+    --angel-secondary-dark: 328 100% 45%; 
+    --angel-secondary-light: 328 100% 75%;
+    
+    --angel-accent: 199 100% 45%;         /* 青色 #00BCD4 */
+    --angel-accent-dark: 199 100% 30%;
+    --angel-accent-light: 199 100% 60%;
+    
+    --angel-gold: 43 100% 50%;            /* 金色 #FFB000 */
+    --angel-gold-dark: 43 100% 35%;
+    --angel-gold-light: 43 100% 65%;
+    
+    --angel-success: 142 76% 36%;         /* 绿色 #00C853 */
+    --angel-warning: 38 100% 50%;         /* 橙色 #FF9800 */
+    --angel-error: 0 100% 50%;            /* 红色 #F44336 */
+    
+    /* WEB3 Neutral Colors - Clean & Modern */
+    --neutral-50: 240 5% 98%;
+    --neutral-100: 240 5% 96%;
+    --neutral-200: 240 6% 90%;
+    --neutral-300: 240 6% 83%;
+    --neutral-400: 240 6% 64%;
+    --neutral-500: 240 6% 46%;
+    --neutral-600: 240 8% 35%;
+    --neutral-700: 240 10% 25%;
+    --neutral-800: 240 12% 15%;
+    --neutral-900: 240 15% 9%;
+    
+    /* Glass Effect Variables - WEB3 Style */
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.6);
+    --glass-shadow: rgba(0, 0, 0, 0.08);
+    
+    /* Chart Colors */
+    --chart-1: 280 100% 65%;
+    --chart-2: 328 100% 60%;
+    --chart-3: 199 100% 45%;
+    --chart-4: 43 100% 50%;
+    --chart-5: 142 76% 36%;
+  }
+
+  .dark {
+    /* WEB3 Dark Theme - Deep & Elegant */
+    --background: 240 15% 6%;             /* 深色背景 */
+    --foreground: 0 0% 98%;
+    --card: 240 12% 8%;                   /* 深色卡片 */
+    --card-foreground: 0 0% 98%;
+    --popover: 240 15% 6%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 280 100% 70%;
+    --primary-foreground: 240 15% 6%;
+    --secondary: 240 8% 12%;              /* 深色次要色 */
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 8% 12%;
+    --muted-foreground: 240 6% 64%;
+    --accent: 240 8% 12%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 65%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 8% 18%;                 /* 深色边框 */
+    --input: 240 8% 18%;
+    --ring: 280 100% 70%;
+    
+    /* WEB3 Dark Theme Brand Colors */
+    --angel-primary: 280 100% 70%;        /* 亮紫色 */
+    --angel-primary-dark: 280 100% 55%;
+    --angel-primary-light: 280 100% 85%;
+    
+    --angel-secondary: 328 100% 65%;      /* 亮粉色 */
+    --angel-secondary-dark: 328 100% 50%;
+    --angel-secondary-light: 328 100% 80%;
+    
+    --angel-accent: 199 100% 50%;         /* 亮青色 */
+    --angel-accent-dark: 199 100% 35%;
+    --angel-accent-light: 199 100% 65%;
+    
+    --angel-gold: 43 100% 55%;            /* 亮金色 */
+    --angel-gold-dark: 43 100% 40%;
+    --angel-gold-light: 43 100% 70%;
+    
+    --angel-success: 142 76% 41%;
+    --angel-warning: 38 100% 55%;
+    --angel-error: 0 100% 55%;
+    
+    /* WEB3 Dark Neutral Colors */
+    --neutral-50: 240 8% 12%;
+    --neutral-100: 240 8% 15%;
+    --neutral-200: 240 8% 18%;
+    --neutral-300: 240 8% 25%;
+    --neutral-400: 240 6% 40%;
+    --neutral-500: 240 6% 55%;
+    --neutral-600: 240 6% 70%;
+    --neutral-700: 240 5% 80%;
+    --neutral-800: 240 5% 90%;
+    --neutral-900: 240 5% 95%;
+    
+    /* Dark Glass Effect */
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: rgba(0, 0, 0, 0.3);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    /* WEB3 Clean Background */
+    background: linear-gradient(135deg, 
+      hsl(var(--background)) 0%, 
+      hsl(var(--neutral-50)) 100%);
+    min-height: 100vh;
+  }
+  
+  /* Light Theme Clean Background */
+  body:not(.dark) {
+    background: linear-gradient(135deg, 
+      #ffffff 0%,      /* 纯白色 */
+      #fafafa 25%,     /* 极浅灰 */
+      #f5f5f5 50%,     /* 浅灰 */
+      #fafafa 75%,     /* 极浅灰 */
+      #ffffff 100%     /* 纯白色 */
+    );
+  }
+  
+  /* Dark Theme Clean Background */
+  .dark body {
+    background: linear-gradient(135deg, 
+      hsl(240 15% 6%) 0%,      /* 深色背景 */
+      hsl(240 12% 8%) 25%,     /* 稍亮深色 */
+      hsl(240 10% 10%) 50%,    /* 中等深色 */
+      hsl(240 12% 8%) 75%,     /* 稍亮深色 */
+      hsl(240 15% 6%) 100%     /* 深色背景 */
+    );
+  }
+}
+
+/* WEB3 Color Classes */
+.bg-angel-primary {
+  background-color: hsl(var(--angel-primary));
+}
+
+.bg-angel-secondary {
+  background-color: hsl(var(--angel-secondary));
+}
+
+.bg-angel-accent {
+  background-color: hsl(var(--angel-accent));
+}
+
+.bg-angel-gold {
+  background-color: hsl(var(--angel-gold));
+}
+
+.text-angel-primary {
+  color: hsl(var(--angel-primary));
+}
+
+.text-angel-secondary {
+  color: hsl(var(--angel-secondary));
+}
+
+.text-angel-accent {
+  color: hsl(var(--angel-accent));
+}
+
+.text-angel-gold {
+  color: hsl(var(--angel-gold));
+}
+
+/* WEB3 Gradient Backgrounds */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-primary)) 0%, 
+    hsl(var(--angel-secondary)) 100%);
+}
+
+.bg-gradient-secondary {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-accent)) 0%, 
+    hsl(var(--angel-primary)) 100%);
+}
+
+.bg-gradient-gold {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-gold)) 0%, 
+    hsl(var(--angel-gold-light)) 100%);
+}
+
+.bg-gradient-premium {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-primary)) 0%, 
+    hsl(var(--angel-secondary)) 25%, 
+    hsl(var(--angel-accent)) 50%, 
+    hsl(var(--angel-gold)) 75%, 
+    hsl(var(--angel-success)) 100%);
+}
+
+/* WEB3 Glass Effects */
+.glass-effect {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px var(--glass-shadow);
+}
+
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 24px var(--glass-shadow);
+}
+
+/* WEB3 Text Gradients */
+.text-gradient-primary {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-primary)) 0%, 
+    hsl(var(--angel-secondary)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-secondary {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-accent)) 0%, 
+    hsl(var(--angel-primary)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-gold)) 0%, 
+    hsl(var(--angel-gold-light)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-premium {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-primary)) 0%, 
+    hsl(var(--angel-secondary)) 25%, 
+    hsl(var(--angel-accent)) 50%, 
+    hsl(var(--angel-gold)) 75%, 
+    hsl(var(--angel-success)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* WEB3 Shadow Effects */
+.shadow-angel-primary {
+  box-shadow: 0 10px 40px -10px hsl(var(--angel-primary) / 0.4);
+}
+
+.shadow-angel-secondary {
+  box-shadow: 0 10px 40px -10px hsl(var(--angel-secondary) / 0.4);
+}
+
+.shadow-angel-accent {
+  box-shadow: 0 10px 40px -10px hsl(var(--angel-accent) / 0.4);
+}
+
+.shadow-angel-gold {
+  box-shadow: 0 10px 40px -10px hsl(var(--angel-gold) / 0.4);
+}
+
+/* WEB3 Hover Effects */
+.hover-glow-primary {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-glow-primary:hover {
+  box-shadow: 0 0 30px hsl(var(--angel-primary) / 0.5);
+  transform: translateY(-2px);
+}
+
+.hover-glow-secondary {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-glow-secondary:hover {
+  box-shadow: 0 0 30px hsl(var(--angel-secondary) / 0.5);
+  transform: translateY(-2px);
+}
+
+.hover-glow-accent {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-glow-accent:hover {
+  box-shadow: 0 0 30px hsl(var(--angel-accent) / 0.5);
+  transform: translateY(-2px);
+}
+
+.hover-glow-gold {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-glow-gold:hover {
+  box-shadow: 0 0 30px hsl(var(--angel-gold) / 0.5);
+  transform: translateY(-2px);
+}
+
+/* WEB3 Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes float-delayed {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px hsl(var(--angel-primary) / 0.4); }
+  50% { box-shadow: 0 0 40px hsl(var(--angel-primary) / 0.6); }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes bounce-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes scale-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes slide-in-up {
+  0% { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-left {
+  0% { 
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% { 
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-right {
+  0% { 
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  100% { 
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* WEB3 Animation Classes */
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-delayed 5s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+.animate-bounce-gentle {
+  animation: bounce-gentle 2s infinite;
+}
+
+.animate-scale-pulse {
+  animation: scale-pulse 2s infinite;
+}
+
+.animate-slide-in-up {
+  animation: slide-in-up 0.6s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.6s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.6s ease-out;
+}
+
+/* WEB3 Utility Classes */
+.gradient-border {
+  position: relative;
+  border-radius: 1rem;
+  padding: 2px;
+  background: linear-gradient(135deg, hsl(var(--angel-primary)), hsl(var(--angel-secondary)));
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  background: hsl(var(--background));
+  border-radius: calc(1rem - 2px);
+  z-index: -1;
+}
+
+/* WEB3 Glow Effects */
+.glow-purple {
+  box-shadow: 0 0 20px hsl(var(--angel-primary) / 0.4);
+}
+
+.glow-pink {
+  box-shadow: 0 0 20px hsl(var(--angel-secondary) / 0.4);
+}
+
+.glow-blue {
+  box-shadow: 0 0 20px hsl(var(--angel-accent) / 0.4);
+}
+
+.glow-gold {
+  box-shadow: 0 0 20px hsl(var(--angel-gold) / 0.4);
+}
+
+/* WEB3 Text Utilities */
+.text-gradient {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-primary)) 0%, 
+    hsl(var(--angel-secondary)) 50%, 
+    hsl(var(--angel-accent)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-gold)) 0%, 
+    hsl(var(--angel-gold-light)) 50%, 
+    hsl(var(--angel-gold)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Accessibility & Performance */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-float-delayed,
+  .animate-float-slow,
+  .animate-shimmer,
+  .animate-glow,
+  .animate-gradient,
+  .animate-bounce-gentle,
+  .animate-scale-pulse {
+    animation: none;
+  }
+}
+
+/* WEB3 Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--neutral-100));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-primary)) 0%, 
+    hsl(var(--angel-secondary)) 100%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-accent)) 0%, 
+    hsl(var(--angel-primary)) 100%);
+}
+
+/* WEB3 Selection */
+::selection {
+  background: hsl(var(--angel-primary) / 0.2);
+  color: hsl(var(--foreground));
+}
+
+/* WEB3 Focus Ring */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+  --tw-ring-color: hsl(var(--angel-primary));
+}
+
+/* WEB3 Loading Spinner */
+.loading-spinner {
+  border: 3px solid hsl(var(--angel-primary) / 0.2);
+  border-top: 3px solid hsl(var(--angel-primary));
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* WEB3 Card Hover */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 40px hsl(var(--neutral-900) / 0.1);
+}
+
+/* WEB3 Button Ripple */
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-ripple::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transition: width 0.6s, height 0.6s, top 0.6s, left 0.6s;
+  transform: translate(-50%, -50%);
+}
+
+.btn-ripple:active::before {
+  width: 300px;
+  height: 300px;
+  top: 50%;
+  left: 50%;
+}
+
+/* 移动端优化 */
+@media (max-width: 640px) {
+  .card-hover:hover {
+    transform: none;
+  }
+  
+  .animate-float,
+  .animate-float-delayed,
+  .animate-float-slow {
+    animation-duration: 4s;
+  }
+  
+  /* 优化触摸目标大小 */
+  button, .btn, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* 优化点击反馈 */
+  .touch-feedback {
+    transition: all 0.15s ease;
+  }
+  
+  .touch-feedback:active {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  
+  /* 移动端安全区域 */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  /* 优化滚动体验 */
+  .smooth-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* 防止选择文本 */
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* 移动端卡片优化 */
+  .mobile-card {
+    padding: 1rem;
+    border-radius: 1.5rem;
+  }
+  
+  /* 移动端按钮优化 */
+  .mobile-btn {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.875rem;
+    border-radius: 1rem;
+  }
+}
+
+/* Dark Theme Specific Styles */
+.dark .glass-effect {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px var(--glass-shadow);
+}
+
+.dark .glass-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 16px var(--glass-shadow);
+}
+
+.dark .text-gradient {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-primary)) 0%, 
+    hsl(var(--angel-secondary)) 50%, 
+    hsl(var(--angel-accent)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dark .text-gradient-gold {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-gold)) 0%, 
+    hsl(var(--angel-gold-light)) 50%, 
+    hsl(var(--angel-gold)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Dark Theme Scrollbar */
+.dark ::-webkit-scrollbar-track {
+  background: hsl(var(--neutral-100));
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-primary)) 0%, 
+    hsl(var(--angel-secondary)) 100%);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, 
+    hsl(var(--angel-accent)) 0%, 
+    hsl(var(--angel-primary)) 100%);
+}
+
+/* Dark Theme Selection */
+.dark ::selection {
+  background: hsl(var(--angel-primary) / 0.3);
+  color: hsl(var(--foreground));
+}
+
+/* Dark Theme Card Enhancements */
+.dark .card-hover:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 40px hsl(var(--angel-primary) / 0.2);
+}
+
+/* Dark Theme Button Ripple */
+.dark .btn-ripple::before {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+
