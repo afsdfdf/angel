@@ -8,6 +8,7 @@ import { Wallet, LogOut, Copy, Gift, Users, Share2 } from "lucide-react"
 import { DatabaseService, type User, REWARD_CONFIG } from "@/lib/database"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { useWallet } from "@/lib/wallet-context"
 
 interface WalletConnectProps {
   onUserChange?: (user: User | null) => void
@@ -81,105 +82,44 @@ class SimpleWalletService {
 
 export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProps) {
   const { user, login, logout } = useAuth()
-  const [isConnected, setIsConnected] = useState(false)
-  const [account, setAccount] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { 
+    isConnected, 
+    account, 
+    isLoading, 
+    error, 
+    connectWallet: connectWalletGlobal, 
+    disconnectWallet: disconnectWalletGlobal,
+    setError: setErrorGlobal 
+  } = useWallet()
   const [showDropdown, setShowDropdown] = useState(false)
   const router = useRouter()
 
   const walletService = new SimpleWalletService()
 
-  useEffect(() => {
-    // 检查是否已经连接
-    checkConnection()
-
-    // 监听账户变化
-    if (typeof window !== 'undefined' && window.ethereum) {
-      window.ethereum.on('accountsChanged', handleAccountsChanged)
-      window.ethereum.on('chainChanged', handleChainChanged)
-    }
-
-    return () => {
-      if (typeof window !== 'undefined' && window.ethereum) {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged)
-        window.ethereum.removeListener('chainChanged', handleChainChanged)
-      }
-    }
-  }, [])
-
-  const checkConnection = async () => {
-    try {
-      const currentAccount = await walletService.getCurrentAccount()
-      if (currentAccount) {
-        setAccount(currentAccount)
-        setIsConnected(true)
-        // 检查是否已经登录
-        try {
-          const userData = await DatabaseService.getUserByWalletAddress(currentAccount)
-          if (userData) {
-            login(userData)
-            onUserChange?.(userData)
-          }
-        } catch (dbError) {
-          console.warn("数据库连接失败，但钱包已连接:", dbError)
-          // 即使数据库不可用，也保持钱包连接状态
-        }
-      }
-    } catch (error) {
-      console.error("检查连接失败:", error)
-    }
-  }
-
-  const handleAccountsChanged = (accounts: string[]) => {
-    if (accounts.length === 0) {
-      // 钱包断开连接
-      disconnectWallet()
-    } else if (accounts[0] !== account) {
-      // 账户切换
-      setAccount(accounts[0])
-      logout()
-      onUserChange?.(null)
-      // 可以选择自动重新登录
-      // loginWithWallet(accounts[0])
-    }
-  }
-
-  const handleChainChanged = () => {
-    // 网络切换时重新加载页面
-    window.location.reload()
-  }
-
   const connectWallet = async () => {
-    setIsLoading(true)
-    setError(null)
-
     try {
-      const result = await walletService.connectWallet()
-
-      if (!result.success) {
-        setError(result.error || "连接失败")
-        return
+      await connectWalletGlobal()
+      
+      // 如果钱包连接成功，自动登录
+      if (account) {
+        await loginWithWallet(account)
       }
-
-      setAccount(result.account!)
-      setIsConnected(true)
-
-      // 自动登录
-      await loginWithWallet(result.account!)
     } catch (error: any) {
       console.error("连接钱包失败:", error)
-      setError(error.message || "连接失败")
-    } finally {
-      setIsLoading(false)
+      setErrorGlobal(error.message || "连接失败")
     }
   }
+
+  // 监听钱包连接状态变化，自动登录
+  useEffect(() => {
+    if (isConnected && account && !user) {
+      console.log("🔄 钱包已连接，自动登录用户:", account)
+      loginWithWallet(account)
+    }
+  }, [isConnected, account, user])
 
   const loginWithWallet = async (walletAddress: string) => {
     try {
-      setIsLoading(true)
-      setError(null)
-
       // 生成签名消息
       const message = `欢迎来到Angel Crypto App！\n\n请签名以验证您的身份。\n\n钱包地址: ${walletAddress}\n时间戳: ${Date.now()}`
       
@@ -187,7 +127,7 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
       const signResult = await walletService.signMessage(walletAddress, message)
       
       if (!signResult.success) {
-        setError(signResult.error || "签名失败")
+        setErrorGlobal(signResult.error || "签名失败")
         return
       }
 
@@ -229,17 +169,13 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
       }
     } catch (error: any) {
       console.error("登录失败:", error)
-      setError(error.message || "登录失败")
-    } finally {
-      setIsLoading(false)
+      setErrorGlobal(error.message || "登录失败")
     }
   }
 
   const disconnectWallet = () => {
-    setIsConnected(false)
-    setAccount(null)
+    disconnectWalletGlobal()
     logout()
-    setError(null)
     setShowDropdown(false)
     onUserChange?.(null)
   }
@@ -452,3 +388,4 @@ declare global {
     ethereum?: any
   }
 }
+
