@@ -1,233 +1,330 @@
--- Angel Crypto App 数据库初始化脚本
--- 项目: Supabase-Green-Queen
+-- Angel Crypto App 完整数据库初始化脚本
+-- 适用于新的邀请系统（基于钱包地址）
 
 -- 启用必要的扩展
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 创建用户表
+-- 1. 创建用户表（更新版本）
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    wallet_address VARCHAR(42) UNIQUE NOT NULL,
-    email VARCHAR(255),
-    username VARCHAR(100),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    wallet_address TEXT UNIQUE NOT NULL,
+    email TEXT,
+    username TEXT,
     avatar_url TEXT,
-    angel_balance DECIMAL(20, 8) DEFAULT 0,
+    angel_balance DECIMAL(18, 2) DEFAULT 0.00,
     referred_by UUID REFERENCES users(id),
     total_referrals INTEGER DEFAULT 0,
-    total_earned DECIMAL(20, 8) DEFAULT 0,
+    total_earned DECIMAL(18, 2) DEFAULT 0.00,
     level INTEGER DEFAULT 1,
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 创建索引
-CREATE INDEX idx_users_wallet_address ON users(wallet_address);
-CREATE INDEX idx_users_referred_by ON users(referred_by);
-
--- 创建邀请表
+-- 2. 创建邀请表（更新版本）
 CREATE TABLE IF NOT EXISTS invitations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     inviter_id UUID NOT NULL REFERENCES users(id),
     invitee_id UUID REFERENCES users(id),
-    invitee_wallet_address VARCHAR(42),
-    inviter_wallet_address VARCHAR(42) NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'expired')),
-    level INTEGER NOT NULL,
-    reward_amount DECIMAL(20, 8) DEFAULT 0,
+    invitee_wallet_address TEXT,
+    inviter_wallet_address TEXT,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'expired')),
+    level INTEGER DEFAULT 1 CHECK (level >= 1 AND level <= 3),
+    reward_amount DECIMAL(18, 2) DEFAULT 0.00,
     reward_claimed BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     accepted_at TIMESTAMP WITH TIME ZONE,
-    expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '30 days')
+    expires_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '30 days')
 );
 
--- 创建索引
-CREATE INDEX idx_invitations_inviter_id ON invitations(inviter_id);
-CREATE INDEX idx_invitations_invitee_id ON invitations(invitee_id);
-CREATE INDEX idx_invitations_inviter_wallet ON invitations(inviter_wallet_address);
-
--- 创建奖励记录表
+-- 3. 创建奖励记录表
 CREATE TABLE IF NOT EXISTS reward_records (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id),
-    reward_type VARCHAR(20) NOT NULL CHECK (reward_type IN ('welcome', 'referral_l1', 'referral_l2', 'referral_l3', 'bonus')),
-    amount DECIMAL(20, 8) NOT NULL,
+    reward_type TEXT NOT NULL CHECK (reward_type IN ('welcome', 'referral_l1', 'referral_l2', 'referral_l3', 'bonus')),
+    amount DECIMAL(18, 2) NOT NULL,
     description TEXT,
     related_user_id UUID REFERENCES users(id),
     related_invitation_id UUID REFERENCES invitations(id),
-    transaction_hash VARCHAR(66),
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    transaction_hash TEXT,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
--- 创建索引
-CREATE INDEX idx_reward_records_user_id ON reward_records(user_id);
-CREATE INDEX idx_reward_records_status ON reward_records(status);
-
--- 创建用户会话表
+-- 4. 创建用户会话表
 CREATE TABLE IF NOT EXISTS user_sessions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id),
-    wallet_address VARCHAR(42) NOT NULL,
-    session_token VARCHAR(255) UNIQUE NOT NULL,
+    wallet_address TEXT NOT NULL,
+    session_token TEXT UNIQUE NOT NULL,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 创建索引
-CREATE INDEX idx_user_sessions_token ON user_sessions(session_token);
-CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
+-- 5. 创建索引以提高查询性能
+CREATE INDEX IF NOT EXISTS idx_users_wallet_address ON users(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_users_referred_by ON users(referred_by);
+CREATE INDEX IF NOT EXISTS idx_invitations_inviter_id ON invitations(inviter_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_inviter_wallet ON invitations(inviter_wallet_address);
+CREATE INDEX IF NOT EXISTS idx_invitations_invitee_wallet ON invitations(invitee_wallet_address);
+CREATE INDEX IF NOT EXISTS idx_reward_records_user_id ON reward_records(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
 
--- 创建更新时间戳的触发器函数
+-- 6. 创建触发器函数：自动更新 updated_at 字段
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.updated_at = NOW();
     RETURN NEW;
 END;
 $$ language 'plpgsql';
 
--- 为用户表创建触发器
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- 7. 为用户表添加自动更新触发器
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+CREATE TRIGGER update_users_updated_at 
+    BEFORE UPDATE ON users 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
 
--- 创建处理邀请注册的函数
-CREATE OR REPLACE FUNCTION process_invite_registration(
-    new_user_wallet VARCHAR(42),
-    inviter_wallet VARCHAR(42)
-)
-RETURNS BOOLEAN AS $$
-DECLARE
-    inviter_user users%ROWTYPE;
-    new_user_id UUID;
-    l1_reward DECIMAL := 50;
-    l2_reward DECIMAL := 25;
-    l3_reward DECIMAL := 10;
+-- 8. 创建函数：增加推荐数量
+CREATE OR REPLACE FUNCTION increment_referral_count(user_id UUID)
+RETURNS VOID AS $$
 BEGIN
-    -- 获取邀请人信息
-    SELECT * INTO inviter_user FROM users WHERE wallet_address = LOWER(inviter_wallet);
-    
-    IF inviter_user.id IS NULL THEN
-        RETURN FALSE;
-    END IF;
-    
-    -- 创建新用户（如果不存在）
-    INSERT INTO users (wallet_address, referred_by, angel_balance, total_earned)
-    VALUES (LOWER(new_user_wallet), inviter_user.id, 10000, 10000)
-    ON CONFLICT (wallet_address) DO NOTHING
-    RETURNING id INTO new_user_id;
-    
-    IF new_user_id IS NULL THEN
-        RETURN FALSE;
-    END IF;
-    
-    -- 记录欢迎奖励
-    INSERT INTO reward_records (user_id, reward_type, amount, description, status, completed_at)
-    VALUES (new_user_id, 'welcome', 10000, '新用户注册奖励', 'completed', CURRENT_TIMESTAMP);
-    
-    -- 创建一级邀请记录
-    INSERT INTO invitations (inviter_id, invitee_id, inviter_wallet_address, invitee_wallet_address, level, reward_amount, status, accepted_at)
-    VALUES (inviter_user.id, new_user_id, LOWER(inviter_wallet), LOWER(new_user_wallet), 1, l1_reward, 'accepted', CURRENT_TIMESTAMP);
-    
-    -- 更新邀请人余额和统计
     UPDATE users 
-    SET angel_balance = angel_balance + l1_reward,
-        total_referrals = total_referrals + 1,
-        total_earned = total_earned + l1_reward
-    WHERE id = inviter_user.id;
-    
-    -- 记录一级邀请奖励
-    INSERT INTO reward_records (user_id, reward_type, amount, description, related_user_id, status, completed_at)
-    VALUES (inviter_user.id, 'referral_l1', l1_reward, '一级邀请奖励', new_user_id, 'completed', CURRENT_TIMESTAMP);
-    
-    -- 处理二级邀请（如果存在）
-    IF inviter_user.referred_by IS NOT NULL THEN
-        UPDATE users 
-        SET angel_balance = angel_balance + l2_reward,
-            total_earned = total_earned + l2_reward
-        WHERE id = inviter_user.referred_by;
-        
-        -- 创建二级邀请记录
-        INSERT INTO invitations (inviter_id, invitee_id, inviter_wallet_address, invitee_wallet_address, level, reward_amount, status, accepted_at)
-        VALUES (inviter_user.referred_by, new_user_id, 
-                (SELECT wallet_address FROM users WHERE id = inviter_user.referred_by), 
-                LOWER(new_user_wallet), 2, l2_reward, 'accepted', CURRENT_TIMESTAMP);
-        
-        -- 记录二级邀请奖励
-        INSERT INTO reward_records (user_id, reward_type, amount, description, related_user_id, status, completed_at)
-        VALUES (inviter_user.referred_by, 'referral_l2', l2_reward, '二级邀请奖励', new_user_id, 'completed', CURRENT_TIMESTAMP);
-        
-        -- 处理三级邀请（如果存在）
-        DECLARE
-            l2_inviter_id UUID;
-        BEGIN
-            SELECT referred_by INTO l2_inviter_id FROM users WHERE id = inviter_user.referred_by;
-            
-            IF l2_inviter_id IS NOT NULL THEN
-                UPDATE users 
-                SET angel_balance = angel_balance + l3_reward,
-                    total_earned = total_earned + l3_reward
-                WHERE id = l2_inviter_id;
-                
-                -- 创建三级邀请记录
-                INSERT INTO invitations (inviter_id, invitee_id, inviter_wallet_address, invitee_wallet_address, level, reward_amount, status, accepted_at)
-                VALUES (l2_inviter_id, new_user_id, 
-                        (SELECT wallet_address FROM users WHERE id = l2_inviter_id), 
-                        LOWER(new_user_wallet), 3, l3_reward, 'accepted', CURRENT_TIMESTAMP);
-                
-                -- 记录三级邀请奖励
-                INSERT INTO reward_records (user_id, reward_type, amount, description, related_user_id, status, completed_at)
-                VALUES (l2_inviter_id, 'referral_l3', l3_reward, '三级邀请奖励', new_user_id, 'completed', CURRENT_TIMESTAMP);
-            END IF;
-        END;
-    END IF;
-    
-    RETURN TRUE;
+    SET total_referrals = total_referrals + 1,
+        updated_at = NOW()
+    WHERE id = user_id;
 END;
 $$ LANGUAGE plpgsql;
 
--- 创建 RLS (Row Level Security) 策略
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reward_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
-
--- 允许匿名用户读取用户信息（用于检查钱包地址）
-CREATE POLICY "Allow anonymous to read users" ON users
-    FOR SELECT USING (true);
-
--- 允许匿名用户创建新用户
-CREATE POLICY "Allow anonymous to create users" ON users
-    FOR INSERT WITH CHECK (true);
-
--- 允许用户更新自己的信息
-CREATE POLICY "Allow users to update own data" ON users
-    FOR UPDATE USING (true);
-
--- 允许读取邀请信息
-CREATE POLICY "Allow read invitations" ON invitations
-    FOR SELECT USING (true);
-
--- 允许创建邀请
-CREATE POLICY "Allow create invitations" ON invitations
-    FOR INSERT WITH CHECK (true);
-
--- 允许读取奖励记录
-CREATE POLICY "Allow read rewards" ON reward_records
-    FOR SELECT USING (true);
-
--- 允许创建奖励记录
-CREATE POLICY "Allow create rewards" ON reward_records
-    FOR INSERT WITH CHECK (true);
-
--- 允许管理会话
-CREATE POLICY "Allow manage sessions" ON user_sessions
-    FOR ALL USING (true);
-
--- 输出成功信息
-DO $$
+-- 9. 创建函数：增加用户余额
+CREATE OR REPLACE FUNCTION add_user_balance(user_id UUID, amount DECIMAL(18, 2))
+RETURNS VOID AS $$
 BEGIN
-    RAISE NOTICE '数据库初始化完成！';
-    RAISE NOTICE '请确保在 Supabase 控制面板中启用了 Row Level Security';
-END $$; 
+    UPDATE users 
+    SET angel_balance = angel_balance + amount,
+        total_earned = total_earned + amount,
+        updated_at = NOW()
+    WHERE id = user_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 10. 创建函数：处理邀请注册
+CREATE OR REPLACE FUNCTION process_invite_registration(
+  new_user_wallet TEXT,
+  inviter_wallet TEXT
+) RETURNS BOOLEAN AS $$
+DECLARE
+  new_user_id UUID;
+  inviter_id UUID;
+  inviter_record RECORD;
+  l2_inviter_record RECORD;
+  l3_inviter_record RECORD;
+  welcome_bonus DECIMAL(18, 2) := 100.00;
+  reward_l1 DECIMAL(18, 2) := 50.00;
+  reward_l2 DECIMAL(18, 2) := 25.00;
+  reward_l3 DECIMAL(18, 2) := 10.00;
+  invitation_id UUID;
+BEGIN
+  -- 获取新用户ID
+  SELECT id INTO new_user_id FROM users WHERE wallet_address = new_user_wallet;
+  
+  -- 获取邀请人信息
+  SELECT * INTO inviter_record FROM users WHERE wallet_address = inviter_wallet;
+  
+  IF inviter_record.id IS NULL THEN
+    RETURN FALSE;
+  END IF;
+  
+  inviter_id := inviter_record.id;
+  
+  -- 更新新用户的推荐关系
+  UPDATE users 
+  SET referred_by = inviter_id,
+      updated_at = NOW()
+  WHERE id = new_user_id;
+  
+  -- 给新用户发放欢迎奖励
+  UPDATE users 
+  SET angel_balance = angel_balance + welcome_bonus,
+      total_earned = total_earned + welcome_bonus,
+      updated_at = NOW()
+  WHERE id = new_user_id;
+  
+  -- 记录新用户欢迎奖励
+  INSERT INTO reward_records (user_id, reward_type, amount, description)
+  VALUES (new_user_id, 'welcome', welcome_bonus, '新用户注册奖励');
+  
+  -- 创建邀请记录
+  INSERT INTO invitations (
+    inviter_id, 
+    invitee_id, 
+    invitee_wallet_address,
+    inviter_wallet_address,
+    status, 
+    level, 
+    reward_amount,
+    accepted_at
+  ) VALUES (
+    inviter_id,
+    new_user_id,
+    new_user_wallet,
+    inviter_wallet,
+    'accepted',
+    1,
+    reward_l1,
+    NOW()
+  ) RETURNING id INTO invitation_id;
+  
+  -- 给一级邀请人奖励
+  UPDATE users 
+  SET angel_balance = angel_balance + reward_l1,
+      total_earned = total_earned + reward_l1,
+      total_referrals = total_referrals + 1,
+      updated_at = NOW()
+  WHERE id = inviter_id;
+  
+  -- 记录一级邀请奖励
+  INSERT INTO reward_records (user_id, reward_type, amount, description, related_user_id, related_invitation_id)
+  VALUES (inviter_id, 'referral_l1', reward_l1, '一级邀请奖励', new_user_id, invitation_id);
+  
+  -- 处理二级邀请奖励
+  IF inviter_record.referred_by IS NOT NULL THEN
+    SELECT * INTO l2_inviter_record FROM users WHERE id = inviter_record.referred_by;
+    
+    IF l2_inviter_record.id IS NOT NULL THEN
+      -- 给二级邀请人奖励
+      UPDATE users 
+      SET angel_balance = angel_balance + reward_l2,
+          total_earned = total_earned + reward_l2,
+          updated_at = NOW()
+      WHERE id = l2_inviter_record.id;
+      
+      -- 记录二级邀请奖励
+      INSERT INTO reward_records (user_id, reward_type, amount, description, related_user_id, related_invitation_id)
+      VALUES (l2_inviter_record.id, 'referral_l2', reward_l2, '二级邀请奖励', new_user_id, invitation_id);
+      
+      -- 处理三级邀请奖励
+      IF l2_inviter_record.referred_by IS NOT NULL THEN
+        SELECT * INTO l3_inviter_record FROM users WHERE id = l2_inviter_record.referred_by;
+        
+        IF l3_inviter_record.id IS NOT NULL THEN
+          -- 给三级邀请人奖励
+          UPDATE users 
+          SET angel_balance = angel_balance + reward_l3,
+              total_earned = total_earned + reward_l3,
+              updated_at = NOW()
+          WHERE id = l3_inviter_record.id;
+          
+          -- 记录三级邀请奖励
+          INSERT INTO reward_records (user_id, reward_type, amount, description, related_user_id, related_invitation_id)
+          VALUES (l3_inviter_record.id, 'referral_l3', reward_l3, '三级邀请奖励', new_user_id, invitation_id);
+        END IF;
+      END IF;
+    END IF;
+  END IF;
+  
+  RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 11. 创建函数：检查是否为新用户
+CREATE OR REPLACE FUNCTION is_new_user(wallet_address TEXT) 
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN NOT EXISTS (
+    SELECT 1 FROM users WHERE wallet_address = wallet_address
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- 12. 创建函数：生成邀请链接
+CREATE OR REPLACE FUNCTION generate_invite_link(wallet_address TEXT, base_url TEXT DEFAULT 'https://www.angelcoin.app')
+RETURNS TEXT AS $$
+BEGIN
+  RETURN base_url || '/invite/' || wallet_address;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 13. 创建函数：清理过期会话
+CREATE OR REPLACE FUNCTION cleanup_expired_sessions()
+RETURNS INTEGER AS $$
+DECLARE
+    deleted_count INTEGER;
+BEGIN
+    DELETE FROM user_sessions 
+    WHERE expires_at < NOW();
+    
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 14. 创建视图：邀请统计
+CREATE OR REPLACE VIEW invitation_stats AS
+SELECT 
+  u.wallet_address,
+  u.username,
+  u.total_referrals,
+  u.total_earned,
+  u.angel_balance,
+  COUNT(i.id) as total_invitations,
+  COUNT(CASE WHEN i.status = 'accepted' THEN 1 END) as accepted_invitations,
+  SUM(CASE WHEN i.status = 'accepted' THEN i.reward_amount ELSE 0 END) as total_rewards
+FROM users u
+LEFT JOIN invitations i ON u.id = i.inviter_id
+GROUP BY u.id, u.wallet_address, u.username, u.total_referrals, u.total_earned, u.angel_balance;
+
+-- 15. 创建视图：用户邀请树
+CREATE OR REPLACE VIEW user_referral_tree AS
+WITH RECURSIVE referral_tree AS (
+  -- 根节点：没有推荐人的用户
+  SELECT 
+    id,
+    wallet_address,
+    username,
+    referred_by,
+    1 as level,
+    ARRAY[id] as path
+  FROM users 
+  WHERE referred_by IS NULL
+  
+  UNION ALL
+  
+  -- 递归：查找下级用户
+  SELECT 
+    u.id,
+    u.wallet_address,
+    u.username,
+    u.referred_by,
+    rt.level + 1,
+    rt.path || u.id
+  FROM users u
+  JOIN referral_tree rt ON u.referred_by = rt.id
+  WHERE NOT u.id = ANY(rt.path) -- 防止循环引用
+)
+SELECT * FROM referral_tree;
+
+-- 16. 插入管理员用户（可选）
+INSERT INTO users (wallet_address, username, angel_balance, is_active, level)
+VALUES ('0x0000000000000000000000000000000000000000', 'Admin', 10000.00, true, 1)
+ON CONFLICT (wallet_address) DO NOTHING;
+
+-- 17. 设置行级安全策略（RLS）- 可选
+-- ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE reward_records ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
+
+-- 创建基本的 RLS 策略
+-- CREATE POLICY "Users can view own data" ON users FOR SELECT USING (auth.uid()::text = id::text);
+-- CREATE POLICY "Users can update own data" ON users FOR UPDATE USING (auth.uid()::text = id::text);
+
+-- 18. 清理旧的不必要的函数和约束
+DROP FUNCTION IF EXISTS process_referral_rewards(UUID, TEXT);
+
+-- 完成提示
+SELECT 'Angel Crypto App 数据库初始化完成！' AS status;
+SELECT '表结构已更新为新的邀请系统版本' AS info;
+SELECT '所有必要的函数和视图已创建' AS functions; 

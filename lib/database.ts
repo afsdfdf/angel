@@ -133,29 +133,46 @@ export class DatabaseService {
         return null;
       }
 
+      console.log('🔍 创建用户数据:', userData);
+
+      const insertData = {
+        ...userData,
+        angel_balance: REWARD_CONFIG.WELCOME_BONUS, // 新用户默认获得欢迎奖励
+        total_referrals: 0,
+        total_earned: REWARD_CONFIG.WELCOME_BONUS,
+        level: 1,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      console.log('📝 插入数据:', insertData);
+
       const { data, error } = await supabase
         .from('users')
-        .insert([{
-          ...userData,
-          angel_balance: REWARD_CONFIG.WELCOME_BONUS, // 新用户默认获得欢迎奖励
-          total_referrals: 0,
-          total_earned: REWARD_CONFIG.WELCOME_BONUS,
-          level: 1,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }])
+        .insert([insertData])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Supabase 错误:', error);
+        throw error;
+      }
+
+      console.log('✅ 用户创建成功:', data);
 
       // 发放欢迎奖励记录
       await this.recordWelcomeReward(data.id);
 
       return data;
-    } catch (error) {
-      console.error('创建用户失败:', error);
+    } catch (error: any) {
+      console.error('❌ 创建用户失败:', error);
+      console.error('❌ 错误详情:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint
+      });
       return null;
     }
   }

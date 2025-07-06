@@ -1,149 +1,310 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { DatabaseService, isDatabaseAvailable } from '@/lib/database';
 import { Button } from '@/components/ui/button';
-import { createClient } from '@supabase/supabase-js';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle, XCircle, AlertCircle, Database, Users, Gift } from 'lucide-react';
 
-export default function TestDbPage() {
-  const [testResults, setTestResults] = useState<any[]>([]);
-  const [testing, setTesting] = useState(false);
+export default function TestDatabasePage() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [testResults, setTestResults] = useState<{
+    connection: boolean;
+    tables: boolean;
+    createUser: boolean;
+    getUser: boolean;
+    error?: string;
+  }>({
+    connection: false,
+    tables: false,
+    createUser: false,
+    getUser: false,
+  });
 
-  const runTests = async () => {
-    setTesting(true);
-    setTestResults([]);
-    
-    const results = [];
-    
-    // 测试1：检查环境变量
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    results.push({
-      test: '环境变量检查',
-      status: url && key ? 'success' : 'error',
-      details: {
-        url: url ? '已设置' : '未设置',
-        key: key ? '已设置' : '未设置'
+  useEffect(() => {
+    runDatabaseTests();
+  }, []);
+
+  const runDatabaseTests = async () => {
+    setIsLoading(true);
+    const results = {
+      connection: false,
+      tables: false,
+      createUser: false,
+      getUser: false,
+      error: undefined as string | undefined,
+    };
+
+    try {
+      console.log('🔍 开始数据库测试...');
+
+      // 1. 测试数据库连接
+      console.log('1. 测试数据库连接...');
+      results.connection = isDatabaseAvailable;
+      console.log('数据库可用性:', results.connection);
+
+      if (!results.connection) {
+        results.error = '数据库配置无效或连接失败';
+        setTestResults(results);
+        setIsLoading(false);
+        return;
       }
-    });
 
-    if (url && key) {
-      // 测试2：创建客户端
+      // 2. 测试数据库健康检查
+      console.log('2. 测试数据库健康检查...');
+      const isHealthy = await DatabaseService.isHealthy();
+      console.log('数据库健康状态:', isHealthy);
+
+      if (!isHealthy) {
+        results.error = '数据库健康检查失败';
+        setTestResults(results);
+        setIsLoading(false);
+        return;
+      }
+
+      // 3. 测试表结构
+      console.log('3. 测试表结构...');
       try {
-        const supabase = createClient(url, key);
-        results.push({
-          test: 'Supabase 客户端创建',
-          status: 'success',
-          details: '客户端创建成功'
-        });
-
-        // 测试3：简单查询
-        try {
-          const { data, error } = await supabase
-            .from('users')
-            .select('count')
-            .limit(1);
-          
-          if (error) {
-            results.push({
-              test: '数据库查询',
-              status: 'error',
-              details: error.message
-            });
-          } else {
-            results.push({
-              test: '数据库查询',
-              status: 'success',
-              details: '查询成功'
-            });
-          }
-        } catch (e: any) {
-          results.push({
-            test: '数据库查询',
-            status: 'error',
-            details: e.message
-          });
-        }
-
-        // 测试4：检查网络连接
-        try {
-          const response = await fetch(url + '/rest/v1/', {
-            headers: {
-              'apikey': key,
-              'Authorization': `Bearer ${key}`
-            }
-          });
-          
-          results.push({
-            test: '网络连接测试',
-            status: response.ok ? 'success' : 'error',
-            details: `状态码: ${response.status}`
-          });
-        } catch (e: any) {
-          results.push({
-            test: '网络连接测试',
-            status: 'error',
-            details: e.message
-          });
-        }
-      } catch (e: any) {
-        results.push({
-          test: 'Supabase 客户端创建',
-          status: 'error',
-          details: e.message
-        });
+        // 尝试查询users表
+        const testUser = await DatabaseService.getUserByWalletAddress('0x0000000000000000000000000000000000000000');
+        results.tables = true;
+        console.log('表结构测试通过');
+      } catch (error) {
+        console.error('表结构测试失败:', error);
+        results.error = `表结构测试失败: ${error}`;
       }
+
+      // 4. 测试创建用户
+      console.log('4. 测试创建用户...');
+      try {
+        const testWallet = `0x${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+        const newUser = await DatabaseService.createUser({
+          wallet_address: testWallet,
+          username: `TestUser_${Date.now()}`,
+        });
+        
+        if (newUser) {
+          results.createUser = true;
+          console.log('创建用户测试通过:', newUser.id);
+          
+          // 5. 测试获取用户
+          console.log('5. 测试获取用户...');
+          const retrievedUser = await DatabaseService.getUserByWalletAddress(testWallet);
+          results.getUser = !!retrievedUser;
+          console.log('获取用户测试:', results.getUser);
+        } else {
+          results.error = '创建用户返回null';
+        }
+      } catch (error) {
+        console.error('创建用户测试失败:', error);
+        results.error = `创建用户失败: ${error}`;
+      }
+
+    } catch (error) {
+      console.error('数据库测试失败:', error);
+      results.error = `测试失败: ${error}`;
     }
 
     setTestResults(results);
-    setTesting(false);
+    setIsLoading(false);
+  };
+
+  const getStatusIcon = (status: boolean) => {
+    return status ? (
+      <CheckCircle className="w-5 h-5 text-green-500" />
+    ) : (
+      <XCircle className="w-5 h-5 text-red-500" />
+    );
+  };
+
+  const getStatusBadge = (status: boolean) => {
+    return status ? (
+      <Badge variant="default" className="bg-green-500">通过</Badge>
+    ) : (
+      <Badge variant="destructive">失败</Badge>
+    );
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>数据库连接测试</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Button onClick={runTests} disabled={testing}>
-              {testing ? '测试中...' : '运行测试'}
-            </Button>
+    <div className="container mx-auto p-6 max-w-4xl">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">数据库连接测试</h1>
+        <p className="text-muted-foreground">
+          测试数据库连接、表结构和基本操作
+        </p>
+      </div>
 
-            {testResults.length > 0 && (
-              <div className="space-y-3">
-                {testResults.map((result, index) => (
-                  <div key={index} className="border rounded p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{result.test}</span>
-                      <span className={`text-sm ${
-                        result.status === 'success' ? 'text-green-500' : 'text-red-500'
-                      }`}>
-                        {result.status === 'success' ? '✓ 成功' : '✗ 失败'}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      {typeof result.details === 'object' 
-                        ? JSON.stringify(result.details, null, 2)
-                        : result.details}
+      <div className="grid gap-6">
+        {/* 测试控制 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="w-5 h-5" />
+              数据库测试控制
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={runDatabaseTests} 
+              disabled={isLoading}
+              className="w-full"
+            >
+              {isLoading ? '测试中...' : '重新运行测试'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* 测试结果 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              测试结果
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p>正在运行测试...</p>
+              </div>
+            ) : (
+              <>
+                {/* 连接测试 */}
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {getStatusIcon(testResults.connection)}
+                    <div>
+                      <h3 className="font-semibold">数据库连接</h3>
+                      <p className="text-sm text-muted-foreground">
+                        检查Supabase配置和连接状态
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                  {getStatusBadge(testResults.connection)}
+                </div>
 
-            <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded">
-              <h3 className="font-semibold mb-2">Supabase 项目信息</h3>
-              <div className="text-sm space-y-1">
-                <p>项目 URL: {process.env.NEXT_PUBLIC_SUPABASE_URL}</p>
-                <p>项目 ID: czvsdszsbvkkiqagrmtp</p>
+                {/* 表结构测试 */}
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {getStatusIcon(testResults.tables)}
+                    <div>
+                      <h3 className="font-semibold">表结构</h3>
+                      <p className="text-sm text-muted-foreground">
+                        检查users表是否存在和可访问
+                      </p>
+                    </div>
+                  </div>
+                  {getStatusBadge(testResults.tables)}
+                </div>
+
+                {/* 创建用户测试 */}
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {getStatusIcon(testResults.createUser)}
+                    <div>
+                      <h3 className="font-semibold">创建用户</h3>
+                      <p className="text-sm text-muted-foreground">
+                        测试用户创建功能
+                      </p>
+                    </div>
+                  </div>
+                  {getStatusBadge(testResults.createUser)}
+                </div>
+
+                {/* 获取用户测试 */}
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {getStatusIcon(testResults.getUser)}
+                    <div>
+                      <h3 className="font-semibold">获取用户</h3>
+                      <p className="text-sm text-muted-foreground">
+                        测试用户查询功能
+                      </p>
+                    </div>
+                  </div>
+                  {getStatusBadge(testResults.getUser)}
+                </div>
+
+                {/* 错误信息 */}
+                {testResults.error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>错误详情:</strong> {testResults.error}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* 总结 */}
+                <div className="mt-6 p-4 bg-muted rounded-lg">
+                  <h3 className="font-semibold mb-2">测试总结</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-500">
+                        {Object.values(testResults).filter(Boolean).length - 1}
+                      </div>
+                      <div className="text-muted-foreground">通过</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-500">
+                        {Object.values(testResults).filter(v => v === false).length}
+                      </div>
+                      <div className="text-muted-foreground">失败</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-500">
+                        {testResults.connection && testResults.tables && testResults.createUser && testResults.getUser ? '100%' : '部分'}
+                      </div>
+                      <div className="text-muted-foreground">完成度</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-orange-500">
+                        {testResults.error ? '需要修复' : '正常'}
+                      </div>
+                      <div className="text-muted-foreground">状态</div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 环境变量检查 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              环境变量检查
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span>NEXT_PUBLIC_SUPABASE_URL:</span>
+                <Badge variant={process.env.NEXT_PUBLIC_SUPABASE_URL ? "default" : "destructive"}>
+                  {process.env.NEXT_PUBLIC_SUPABASE_URL ? '已设置' : '未设置'}
+                </Badge>
+              </div>
+              <div className="flex justify-between">
+                <span>NEXT_PUBLIC_SUPABASE_ANON_KEY:</span>
+                <Badge variant={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "default" : "destructive"}>
+                  {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '已设置' : '未设置'}
+                </Badge>
+              </div>
+              <div className="flex justify-between">
+                <span>SUPABASE_SERVICE_ROLE_KEY:</span>
+                <Badge variant={process.env.SUPABASE_SERVICE_ROLE_KEY ? "default" : "destructive"}>
+                  {process.env.SUPABASE_SERVICE_ROLE_KEY ? '已设置' : '未设置'}
+                </Badge>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 } 
