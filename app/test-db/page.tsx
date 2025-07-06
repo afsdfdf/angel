@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { DatabaseService, isDatabaseAvailable } from '@/lib/database';
+import { DatabaseDiagnostics } from '@/lib/database-diagnostics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,12 +16,14 @@ export default function TestDatabasePage() {
     tables: boolean;
     createUser: boolean;
     getUser: boolean;
+    diagnostics: any | null;
     error?: string;
   }>({
     connection: false,
     tables: false,
     createUser: false,
     getUser: false,
+    diagnostics: null,
   });
 
   useEffect(() => {
@@ -29,12 +32,20 @@ export default function TestDatabasePage() {
 
   const runDatabaseTests = async () => {
     setIsLoading(true);
-    const results = {
+    const results: {
+      connection: boolean;
+      tables: boolean;
+      createUser: boolean;
+      getUser: boolean;
+      diagnostics: any | null;
+      error?: string;
+    } = {
       connection: false,
       tables: false,
       createUser: false,
       getUser: false,
-      error: undefined as string | undefined,
+      diagnostics: null,
+      error: undefined,
     };
 
     try {
@@ -51,6 +62,11 @@ export default function TestDatabasePage() {
         setIsLoading(false);
         return;
       }
+
+      // 运行完整诊断
+      console.log('🔍 运行数据库完整诊断...');
+      const diagnostics = await DatabaseDiagnostics.runFullDiagnostics();
+      results.diagnostics = diagnostics;
 
       // 2. 测试数据库健康检查
       console.log('2. 测试数据库健康检查...');
@@ -236,6 +252,51 @@ export default function TestDatabasePage() {
                       <strong>错误详情:</strong> {testResults.error}
                     </AlertDescription>
                   </Alert>
+                )}
+
+                {/* 诊断结果 */}
+                {testResults.diagnostics && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5" />
+                        数据库诊断结果
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {testResults.diagnostics.summary.issues.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-red-600 mb-2">发现的问题:</h4>
+                          <ul className="list-disc list-inside space-y-1 text-sm">
+                            {testResults.diagnostics.summary.issues.map((issue: string, index: number) => (
+                              <li key={index} className="text-red-600">{issue}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {testResults.diagnostics.summary.recommendations.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-blue-600 mb-2">建议:</h4>
+                          <ul className="list-disc list-inside space-y-1 text-sm">
+                            {testResults.diagnostics.summary.recommendations.map((rec: string, index: number) => (
+                              <li key={index} className="text-blue-600">{rec}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {testResults.diagnostics.summary.success && (
+                        <Alert className="border-green-200 bg-green-50">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <AlertDescription className="text-green-800">
+                            <strong>诊断通过！</strong><br />
+                            数据库配置正常，所有检查都已通过。
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </CardContent>
+                  </Card>
                 )}
 
                 {/* 总结 */}

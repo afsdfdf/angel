@@ -113,15 +113,32 @@ export class DatabaseService {
         return false;
       }
       
+      console.log('🔍 开始数据库健康检查...');
+      
       // 尝试执行一个简单的查询来检查连接
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('id')
         .limit(1);
       
-      return !error;
-    } catch (error) {
-      console.error('数据库健康检查失败:', error);
+      if (error) {
+        console.error('❌ 数据库健康检查失败:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        return false;
+      }
+      
+      console.log('✅ 数据库健康检查通过');
+      return true;
+    } catch (error: any) {
+      console.error('❌ 数据库健康检查异常:', {
+        message: error?.message,
+        code: error?.code,
+        stack: error?.stack
+      });
       return false;
     }
   }
@@ -155,7 +172,12 @@ export class DatabaseService {
         .single();
 
       if (error) {
-        console.error('❌ Supabase 错误:', error);
+        console.error('❌ Supabase 错误:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         throw error;
       }
 
@@ -167,12 +189,28 @@ export class DatabaseService {
       return data;
     } catch (error: any) {
       console.error('❌ 创建用户失败:', error);
-      console.error('❌ 错误详情:', {
-        message: error?.message,
-        code: error?.code,
-        details: error?.details,
-        hint: error?.hint
-      });
+      
+      // 详细记录错误信息
+      const errorInfo = {
+        message: error?.message || '未知错误',
+        code: error?.code || 'NO_CODE',
+        details: error?.details || '无详细信息',
+        hint: error?.hint || '无提示信息',
+        stack: error?.stack || '无堆栈信息'
+      };
+      
+      console.error('❌ 错误详情:', errorInfo);
+      
+      // 如果是表不存在错误，提供特殊提示
+      if (error?.code === '42P01' || error?.message?.includes('relation "users" does not exist')) {
+        console.error('❌ 数据库表不存在！请运行数据库初始化脚本');
+      }
+      
+      // 如果是权限错误，提供特殊提示
+      if (error?.code === '42501' || error?.message?.includes('permission denied')) {
+        console.error('❌ 数据库权限不足！请检查RLS策略');
+      }
+      
       return null;
     }
   }
