@@ -70,14 +70,14 @@ export default function TestDatabasePage() {
 
       <div className="grid gap-6">
         {/* 测试控制 */}
-        <Card>
-          <CardHeader>
+      <Card>
+        <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Database className="w-5 h-5" />
               数据库测试控制
             </CardTitle>
-          </CardHeader>
-          <CardContent>
+        </CardHeader>
+        <CardContent>
             <Button 
               onClick={runTests} 
               disabled={isLoading}
@@ -225,9 +225,9 @@ export default function TestDatabasePage() {
                             <span className={policy.can_select ? 'text-green-600' : 'text-red-600'}>
                               {policy.can_select ? '正常' : '失败'}
                             </span>
-                          </div>
-                        </div>
-                      ))}
+                    </div>
+                  </div>
+                ))}
                     </div>
                     {results.policies.errors?.length > 0 && (
                       <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
@@ -237,8 +237,8 @@ export default function TestDatabasePage() {
                             <li key={index}>• {error}</li>
                           ))}
                         </ul>
-                      </div>
-                    )}
+              </div>
+            )}
                   </CardContent>
                 </Card>
               </div>
@@ -344,11 +344,11 @@ export default function TestDatabasePage() {
                     <Badge variant={envInfo.serviceRoleKey !== '未设置' ? 'default' : 'destructive'}>
                       {envInfo.serviceRoleKey !== '未设置' ? '已设置' : '未设置'}
                     </Badge>
-                  </div>
-                </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
         )}
       </div>
     </div>

@@ -209,7 +209,9 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
           // 新用户，处理邀请注册
           let success = false
           if (inviterWallet) {
+            console.log("🔄 处理邀请注册:", walletAddress, inviterWallet)
             success = await DatabaseService.processInviteRegistration(walletAddress, inviterWallet)
+            console.log("邀请注册结果:", success)
           } else {
             // 没有邀请人，直接创建用户
             const newUser = await DatabaseService.createUser({

@@ -66,16 +66,34 @@ export default function InvitePage() {
       
       if (isNewUser) {
         // 新用户通过邀请链接注册
-        await login(inviterWalletAddress)
-        setRegistrationSuccess(true)
+        // 处理邀请注册关系
+        const success = await DatabaseService.processInviteRegistration(
+          user.wallet_address.toLowerCase(),
+          inviterWalletAddress.toLowerCase()
+        )
         
-        // 3秒后跳转到主页
-        setTimeout(() => {
-          router.push('/')
-        }, 3000)
+        if (success) {
+          // 重新获取用户信息（包含奖励）
+          const updatedUser = await DatabaseService.getUserByWalletAddress(user.wallet_address)
+          if (updatedUser) {
+            await login(updatedUser)
+          } else {
+            await login(user)
+          }
+          setRegistrationSuccess(true)
+          
+          // 3秒后跳转到主页
+          setTimeout(() => {
+            router.push('/')
+          }, 3000)
+        } else {
+          // 邀请处理失败，但仍然登录用户
+          await login(user)
+          setError("邀请处理失败，但您已成功登录")
+        }
       } else {
         // 已存在用户直接登录
-        await login()
+        await login(user)
         
         // 1秒后跳转到主页
         setTimeout(() => {
