@@ -91,12 +91,12 @@ export class DatabaseDiagnostics {
   // 检查RLS策略
   static async checkRLSPolicies(): Promise<{
     success: boolean;
-    policies: Record<string, boolean>;
+    policies: Record<string, any>;
     errors: string[];
   }> {
     const results = {
       success: true,
-      policies: {} as Record<string, boolean>,
+      policies: {} as Record<string, any>,
       errors: [] as string[]
     };
 
@@ -104,42 +104,49 @@ export class DatabaseDiagnostics {
 
     for (const tableName of tables) {
       try {
-        // 尝试插入一条测试数据
-        const { error } = await this.supabase
+        // 测试查询权限
+        const { data: selectData, error: selectError } = await this.supabase
           .from(tableName)
-          .insert([{
-            // 最小化的测试数据
-            ...(tableName === 'users' && {
-              wallet_address: '0x0000000000000000000000000000000000000000',
-              username: 'test_user'
-            }),
-            ...(tableName === 'invitations' && {
-              inviter_id: '00000000-0000-0000-0000-000000000000',
-              inviter_wallet_address: '0x0000000000000000000000000000000000000000'
-            }),
-            ...(tableName === 'reward_records' && {
-              user_id: '00000000-0000-0000-0000-000000000000',
-              reward_type: 'welcome',
-              amount: 0
-            }),
-            ...(tableName === 'user_sessions' && {
-              user_id: '00000000-0000-0000-0000-000000000000',
-              wallet_address: '0x0000000000000000000000000000000000000000',
-              session_token: 'test_token',
-              expires_at: new Date(Date.now() + 3600000).toISOString()
-            })
-          }]);
+          .select('*')
+          .limit(1);
 
-        if (error) {
-          if (error.code === '42501') {
-            // 权限被拒绝 - RLS可能过于严格
-            results.policies[tableName] = false;
-            results.errors.push(`${tableName}: 权限被拒绝 - 可能需要调整RLS策略`);
-          } else {
-            results.policies[tableName] = true;
+        // 测试插入权限（仅对users表）
+        let insertResult = null;
+        if (tableName === 'users') {
+          const testUser = {
+            wallet_address: 'test_wallet_' + Date.now(),
+            username: 'test_user_' + Date.now()
+          };
+          
+          const { data: insertData, error: insertError } = await this.supabase
+            .from(tableName)
+            .insert(testUser)
+            .select()
+            .single();
+          
+          insertResult = { data: insertData, error: insertError };
+          
+          // 清理测试数据
+          if (insertData) {
+            await this.supabase.from(tableName).delete().eq('id', insertData.id);
           }
-        } else {
-          results.policies[tableName] = true;
+        }
+
+        results.policies[tableName] = {
+          can_select: !selectError,
+          can_insert: tableName === 'users' ? !insertResult?.error : 'not_tested',
+          select_error: selectError?.message,
+          insert_error: tableName === 'users' ? insertResult?.error?.message : null
+        };
+
+        if (selectError) {
+          results.errors.push(`${tableName} 查询失败: ${selectError.message}`);
+          results.success = false;
+        }
+        
+        if (tableName === 'users' && insertResult?.error) {
+          results.errors.push(`${tableName} 插入失败: ${insertResult.error.message}`);
+          results.success = false;
         }
       } catch (error: any) {
         results.errors.push(`${tableName}: ${error.message}`);
@@ -150,13 +157,92 @@ export class DatabaseDiagnostics {
     return results;
   }
 
+  // 测试用户创建功能
+  static async testUserCreation(): Promise<{
+    success: boolean;
+    user?: any;
+    error?: string;
+  }> {
+    try {
+      const testWallet = 'test_wallet_' + Date.now();
+      const testUser = {
+        wallet_address: testWallet,
+        username: 'test_user_' + Date.now(),
+        angel_balance: 100.00
+      };
+      
+      const { data, error } = await this.supabase
+        .from('users')
+        .insert(testUser)
+        .select()
+        .single();
+      
+      if (error) {
+        return { 
+          success: false, 
+          error: `创建用户失败: ${error.message}` 
+        };
+      }
+      
+      if (!data) {
+        return { 
+          success: false, 
+          error: '创建用户返回null' 
+        };
+      }
+      
+      // 清理测试数据
+      await this.supabase.from('users').delete().eq('id', data.id);
+      
+      return { success: true, user: data };
+    } catch (err) {
+      return { 
+        success: false, 
+        error: err instanceof Error ? err.message : 'Unknown error' 
+      };
+    }
+  }
+
+  // 测试用户查询功能
+  static async testUserQuery(): Promise<{
+    success: boolean;
+    users?: any[];
+    error?: string;
+  }> {
+    try {
+      const { data, error } = await this.supabase
+        .from('users')
+        .select('*')
+        .limit(5);
+      
+      if (error) {
+        return { 
+          success: false, 
+          error: `查询用户失败: ${error.message}` 
+        };
+      }
+      
+      return { success: true, users: data || [] };
+    } catch (err) {
+      return { 
+        success: false, 
+        error: err instanceof Error ? err.message : 'Unknown error' 
+      };
+    }
+  }
+
   // 运行完整诊断
   static async runFullDiagnostics(): Promise<{
     connection: any;
     tables: any;
     policies: any;
+    createUser: any;
+    queryUsers: any;
     summary: {
       success: boolean;
+      total: number;
+      passed: number;
+      failed: number;
       issues: string[];
       recommendations: string[];
     };
@@ -166,19 +252,29 @@ export class DatabaseDiagnostics {
     const connection = await this.checkConnection();
     const tables = await this.checkTableStructure();
     const policies = await this.checkRLSPolicies();
+    const createUser = await this.testUserCreation();
+    const queryUsers = await this.testUserQuery();
 
     const issues: string[] = [];
     const recommendations: string[] = [];
+    let passed = 0;
+    let failed = 0;
 
     // 分析连接问题
-    if (!connection.success) {
+    if (connection.success) {
+      passed++;
+    } else {
+      failed++;
       issues.push(`连接失败: ${connection.error}`);
       recommendations.push('检查环境变量配置');
       recommendations.push('确认Supabase项目状态');
     }
 
     // 分析表结构问题
-    if (!tables.success) {
+    if (tables.success) {
+      passed++;
+    } else {
+      failed++;
       if (tables.missingTables.length > 0) {
         issues.push(`缺少表: ${tables.missingTables.join(', ')}`);
         recommendations.push('运行数据库初始化脚本');
@@ -189,18 +285,39 @@ export class DatabaseDiagnostics {
     }
 
     // 分析权限问题
-    const failedPolicies = Object.entries(policies.policies)
-      .filter(([_, enabled]) => !enabled)
-      .map(([table]) => table);
-
-    if (failedPolicies.length > 0) {
-      issues.push(`权限问题: ${failedPolicies.join(', ')}`);
+    if (policies.success) {
+      passed++;
+    } else {
+      failed++;
+      issues.push(`权限问题: ${policies.errors.join('; ')}`);
       recommendations.push('检查RLS策略配置');
       recommendations.push('考虑临时禁用RLS进行测试');
     }
 
+    // 分析用户创建测试
+    if (createUser.success) {
+      passed++;
+    } else {
+      failed++;
+      issues.push(`用户创建失败: ${createUser.error}`);
+      recommendations.push('检查users表的RLS策略');
+      recommendations.push('确认表结构完整性');
+    }
+
+    // 分析用户查询测试
+    if (queryUsers.success) {
+      passed++;
+    } else {
+      failed++;
+      issues.push(`用户查询失败: ${queryUsers.error}`);
+      recommendations.push('检查users表的查询权限');
+    }
+
     const summary = {
-      success: connection.success && tables.success && policies.success,
+      success: connection.success && tables.success && policies.success && createUser.success && queryUsers.success,
+      total: 5,
+      passed,
+      failed,
       issues,
       recommendations
     };
@@ -209,6 +326,10 @@ export class DatabaseDiagnostics {
       connection: connection.success ? '✅ 正常' : '❌ 失败',
       tables: tables.success ? '✅ 正常' : '❌ 失败',
       policies: policies.success ? '✅ 正常' : '❌ 失败',
+      createUser: createUser.success ? '✅ 正常' : '❌ 失败',
+      queryUsers: queryUsers.success ? '✅ 正常' : '❌ 失败',
+      passed,
+      failed,
       issues: issues.length,
       recommendations: recommendations.length
     });
@@ -217,7 +338,22 @@ export class DatabaseDiagnostics {
       connection,
       tables,
       policies,
+      createUser,
+      queryUsers,
       summary
+    };
+  }
+
+  // 获取环境信息
+  static getEnvironmentInfo(): {
+    supabaseUrl: string;
+    supabaseKey: string;
+    serviceRoleKey: string;
+  } {
+    return {
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '未设置',
+      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '已设置' : '未设置',
+      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ? '已设置' : '未设置'
     };
   }
 } 

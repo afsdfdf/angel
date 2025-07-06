@@ -311,15 +311,67 @@ INSERT INTO users (wallet_address, username, angel_balance, is_active, level)
 VALUES ('0x0000000000000000000000000000000000000000', 'Admin', 10000.00, true, 1)
 ON CONFLICT (wallet_address) DO NOTHING;
 
--- 17. 设置行级安全策略（RLS）- 可选
--- ALTER TABLE users ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE reward_records ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
+-- 17. 设置行级安全策略（RLS）- 重要！
+-- 启用RLS
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reward_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
 
--- 创建基本的 RLS 策略
--- CREATE POLICY "Users can view own data" ON users FOR SELECT USING (auth.uid()::text = id::text);
--- CREATE POLICY "Users can update own data" ON users FOR UPDATE USING (auth.uid()::text = id::text);
+-- 删除可能存在的旧策略
+DROP POLICY IF EXISTS "Allow anonymous to read users" ON users;
+DROP POLICY IF EXISTS "Allow anonymous to create users" ON users;
+DROP POLICY IF EXISTS "Allow users to update own data" ON users;
+DROP POLICY IF EXISTS "Allow read invitations" ON invitations;
+DROP POLICY IF EXISTS "Allow create invitations" ON invitations;
+DROP POLICY IF EXISTS "Allow read rewards" ON reward_records;
+DROP POLICY IF EXISTS "Allow create rewards" ON reward_records;
+DROP POLICY IF EXISTS "Allow manage sessions" ON user_sessions;
+
+-- 创建新的RLS策略
+
+-- users表策略
+CREATE POLICY "Allow anonymous to read users" ON users
+    FOR SELECT USING (true);
+
+CREATE POLICY "Allow anonymous to create users" ON users
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow users to update own data" ON users
+    FOR UPDATE USING (true);
+
+-- invitations表策略
+CREATE POLICY "Allow read invitations" ON invitations
+    FOR SELECT USING (true);
+
+CREATE POLICY "Allow create invitations" ON invitations
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow update invitations" ON invitations
+    FOR UPDATE USING (true);
+
+-- reward_records表策略
+CREATE POLICY "Allow read rewards" ON reward_records
+    FOR SELECT USING (true);
+
+CREATE POLICY "Allow create rewards" ON reward_records
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow update rewards" ON reward_records
+    FOR UPDATE USING (true);
+
+-- user_sessions表策略
+CREATE POLICY "Allow read sessions" ON user_sessions
+    FOR SELECT USING (true);
+
+CREATE POLICY "Allow create sessions" ON user_sessions
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow update sessions" ON user_sessions
+    FOR UPDATE USING (true);
+
+CREATE POLICY "Allow delete sessions" ON user_sessions
+    FOR DELETE USING (true);
 
 -- 18. 清理旧的不必要的函数和约束
 DROP FUNCTION IF EXISTS process_referral_rewards(UUID, TEXT);
@@ -327,4 +379,5 @@ DROP FUNCTION IF EXISTS process_referral_rewards(UUID, TEXT);
 -- 完成提示
 SELECT 'Angel Crypto App 数据库初始化完成！' AS status;
 SELECT '表结构已更新为新的邀请系统版本' AS info;
-SELECT '所有必要的函数和视图已创建' AS functions; 
+SELECT '所有必要的函数和视图已创建' AS functions;
+SELECT 'RLS策略已配置，允许匿名用户操作' AS rls_status; 
