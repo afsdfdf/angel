@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, XCircle, AlertCircle, Users, Coins, RefreshCw } from 'lucide-react';
+import { WalletConnect } from '@/components/wallet-connect';
 
 export default function TestInviteRewardsPage() {
   const { user } = useAuth();
@@ -32,21 +33,11 @@ export default function TestInviteRewardsPage() {
       setInviteLink(link);
 
       // 获取奖励记录
-      const { data: rewards } = await DatabaseService.supabase
-        .from('reward_records')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
+      const rewards = await DatabaseService.getRewardRecords(user.id);
       setRewardRecords(rewards || []);
 
       // 获取邀请记录
-      const { data: invites } = await DatabaseService.supabase
-        .from('invitations')
-        .select('*')
-        .eq('inviter_id', user.id)
-        .order('created_at', { ascending: false });
-
+      const invites = await DatabaseService.getInvitationsByUser(user.id);
       setInvitations(invites || []);
     } catch (error) {
       console.error('加载用户数据失败:', error);
@@ -75,12 +66,8 @@ export default function TestInviteRewardsPage() {
 
       // 测试2: 检查邀请人是否存在（如果有推荐人）
       if (userData?.referred_by) {
-        const inviterData = await DatabaseService.supabase
-          .from('users')
-          .select('*')
-          .eq('id', userData.referred_by)
-          .single();
-        results.inviterExists = !!inviterData.data;
+        const inviterData = await DatabaseService.getUserById(userData.referred_by);
+        results.inviterExists = !!inviterData;
       } else {
         results.inviterExists = true; // 没有推荐人也算正常
       }
@@ -96,18 +83,12 @@ export default function TestInviteRewardsPage() {
       }
 
       // 测试4: 检查奖励记录
-      const { data: rewards } = await DatabaseService.supabase
-        .from('reward_records')
-        .select('*')
-        .eq('user_id', user.id);
+      const rewards = await DatabaseService.getRewardRecords(user.id);
       results.rewardRecords = Array.isArray(rewards);
       results.totalRewards = rewards?.length || 0;
 
       // 测试5: 检查邀请记录
-      const { data: invites } = await DatabaseService.supabase
-        .from('invitations')
-        .select('*')
-        .eq('inviter_id', user.id);
+      const invites = await DatabaseService.getInvitationsByUser(user.id);
       results.invitations = Array.isArray(invites);
       results.totalInvitations = invites?.length || 0;
 
@@ -141,7 +122,15 @@ export default function TestInviteRewardsPage() {
         <div className="text-center py-8">
           <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h2 className="text-xl font-semibold mb-2">请先登录</h2>
-          <p className="text-muted-foreground">需要登录后才能测试邀请奖励系统</p>
+          <p className="text-muted-foreground mb-6">需要登录后才能测试邀请奖励系统</p>
+          
+          <div className="flex justify-center">
+            <WalletConnect />
+          </div>
+          
+          <p className="text-sm text-muted-foreground mt-4">
+            连接钱包后即可开始测试邀请奖励系统
+          </p>
         </div>
       </div>
     );
