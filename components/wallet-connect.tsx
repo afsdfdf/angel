@@ -71,6 +71,12 @@ class SimpleWalletService {
         return { success: false, error: "钱包未安装" }
       }
 
+      // 检查是否有待处理的请求
+      if (window.ethereum.isMetaMask) {
+        // 等待一下，确保没有待处理的请求
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+
       const signature = await window.ethereum.request({
         method: "personal_sign",
         params: [message, account],
@@ -79,6 +85,20 @@ class SimpleWalletService {
       return { success: true, signature }
     } catch (error: any) {
       console.error("签名失败:", error)
+      
+      // 处理特定的错误类型
+      if (error.message?.includes("pending request")) {
+        return { success: false, error: "钱包有未完成的请求，请稍后再试" }
+      }
+      
+      if (error.code === 4001) {
+        return { success: false, error: "用户拒绝了签名请求" }
+      }
+      
+      if (error.code === -32002) {
+        return { success: false, error: "请检查钱包扩展程序并完成待处理的请求" }
+      }
+      
       return { success: false, error: error.message || "签名失败" }
     } finally {
       this.isSigning = false
@@ -115,6 +135,7 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
   const [showDropdown, setShowDropdown] = useState(false)
   const [isSigning, setIsSigning] = useState(false)
   const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [loginAttempts, setLoginAttempts] = useState<Set<string>>(new Set())
   const router = useRouter()
 
   const walletService = new SimpleWalletService()
@@ -135,23 +156,38 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
 
   // 监听钱包连接状态变化，自动登录
   useEffect(() => {
-    if (isConnected && account && !user && !isLoggingIn) {
+    if (isConnected && account && !user && !isLoggingIn && !loginAttempts.has(account)) {
       console.log("🔄 钱包已连接，自动登录用户:", account)
       loginWithWallet(account)
     }
-  }, [isConnected, account, user, isLoggingIn])
+  }, [isConnected, account, user, isLoggingIn, loginAttempts])
+
+  // 清理函数
+  useEffect(() => {
+    return () => {
+      // 组件卸载时清理状态
+      setIsLoggingIn(false)
+      setIsSigning(false)
+      setLoginAttempts(new Set())
+    }
+  }, [])
 
   const loginWithWallet = async (walletAddress: string) => {
     // 防止重复登录
-    if (isLoggingIn || isSigning) {
+    if (isLoggingIn || isSigning || loginAttempts.has(walletAddress)) {
       console.log("🔄 登录或签名进行中，跳过重复请求")
       return
     }
 
+    // 标记当前钱包地址正在尝试登录
+    setLoginAttempts(prev => new Set(prev).add(walletAddress))
     setIsLoggingIn(true)
     setIsSigning(true)
 
     try {
+      // 添加延迟，确保钱包扩展程序准备好
+      await new Promise(resolve => setTimeout(resolve, 500))
+
       // 生成签名消息
       const message = `欢迎来到Angel Crypto App！\n\n请签名以验证您的身份。\n\n钱包地址: ${walletAddress}\n时间戳: ${Date.now()}`
       
@@ -207,6 +243,12 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
     } finally {
       setIsLoggingIn(false)
       setIsSigning(false)
+      // 清除登录尝试记录
+      setLoginAttempts(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(walletAddress)
+        return newSet
+      })
     }
   }
 
