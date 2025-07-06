@@ -7,18 +7,21 @@ import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/page-header"
 import { MemeBackground } from "@/components/meme-background"
 import { WalletConnect } from "@/components/wallet-connect"
+import { useAuth } from "@/lib/auth-context"
 import { DatabaseService, type User, REWARD_CONFIG } from "@/lib/database"
-import { Gift, Users, Coins, Star, TrendingUp } from "lucide-react"
+import { Gift, Users, Coins, Star, TrendingUp, AlertCircle } from "lucide-react"
 
 export default function InvitePage() {
   const params = useParams()
   const router = useRouter()
+  const { login } = useAuth()
   const inviterWalletAddress = params.code as string
   
   const [inviter, setInviter] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [user, setUser] = useState<User | null>(null)
+  const [isRegistering, setIsRegistering] = useState(false)
+  const [registrationSuccess, setRegistrationSuccess] = useState(false)
 
   useEffect(() => {
     if (inviterWalletAddress) {
@@ -29,37 +32,61 @@ export default function InvitePage() {
   const loadInviterInfo = async () => {
     try {
       setIsLoading(true)
+      setError(null)
+      
+      // 验证钱包地址格式
+      if (!inviterWalletAddress || !inviterWalletAddress.startsWith('0x') || inviterWalletAddress.length !== 42) {
+        setError("邀请链接格式无效")
+        return
+      }
+
       const inviterData = await DatabaseService.getUserByWalletAddress(inviterWalletAddress)
       
       if (inviterData) {
         setInviter(inviterData)
       } else {
-        setError("邀请链接无效或已过期")
+        setError("邀请人不存在或邀请链接无效")
       }
     } catch (error) {
       console.error("加载邀请信息失败:", error)
-      setError("加载邀请信息失败")
+      setError("加载邀请信息失败，请稍后重试")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleUserChange = (newUser: User | null) => {
-    setUser(newUser)
-    if (newUser) {
-      // 处理邀请关系
-      DatabaseService.acceptInvitation(inviterWalletAddress, newUser.wallet_address)
-        .then(() => {
-          console.log("邀请关系处理成功")
-        })
-        .catch(error => {
-          console.error("处理邀请关系失败:", error)
-        })
+  const handleUserChange = async (user: User | null) => {
+    if (!user) return
+    
+    try {
+      setIsRegistering(true)
       
-      // 用户成功登录，跳转到主页
-      setTimeout(() => {
-        router.push('/')
-      }, 2000)
+      // 检查是否为新用户通过邀请链接注册
+      const isNewUser = await DatabaseService.isNewUser(user.wallet_address)
+      
+      if (isNewUser) {
+        // 新用户通过邀请链接注册
+        await login(inviterWalletAddress)
+        setRegistrationSuccess(true)
+        
+        // 3秒后跳转到主页
+        setTimeout(() => {
+          router.push('/')
+        }, 3000)
+      } else {
+        // 已存在用户直接登录
+        await login()
+        
+        // 1秒后跳转到主页
+        setTimeout(() => {
+          router.push('/')
+        }, 1000)
+      }
+    } catch (error: any) {
+      console.error("处理用户登录失败:", error)
+      setError("处理用户登录失败，请重试")
+    } finally {
+      setIsRegistering(false)
     }
   }
 
@@ -84,11 +111,16 @@ export default function InvitePage() {
           <Card className="glass-card border-0 shadow-lg">
             <CardContent className="p-6 text-center">
               <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
-                <Gift className="w-8 h-8 text-red-400" />
+                <AlertCircle className="w-8 h-8 text-red-400" />
               </div>
               <h3 className="text-foreground font-bold text-lg mb-2">邀请链接无效</h3>
               <p className="text-muted-foreground text-sm mb-4">{error}</p>
-              <WalletConnect onUserChange={handleUserChange} />
+                              <div className="space-y-2">
+                  <WalletConnect onUserChange={handleUserChange} />
+                  <p className="text-xs text-muted-foreground">
+                    您仍可以正常连接钱包使用应用
+                  </p>
+                </div>
             </CardContent>
           </Card>
         </div>
@@ -96,29 +128,44 @@ export default function InvitePage() {
     )
   }
 
-  if (user) {
+  if (registrationSuccess) {
     return (
       <MemeBackground variant="premium" overlay={true}>
-        <PageHeader title="欢迎加入" emoji="🎉" />
+        <PageHeader title="注册成功" emoji="🎉" />
         <div className="container mx-auto px-4 pb-4 max-w-md pt-20">
           <Card className="glass-card border-0 shadow-lg">
             <CardContent className="p-6 text-center">
               <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
                 <Star className="w-8 h-8 text-green-400" />
               </div>
-              <h3 className="text-foreground font-bold text-lg mb-2">注册成功！</h3>
+              <h3 className="text-foreground font-bold text-lg mb-2">欢迎加入天使生态！</h3>
               <p className="text-muted-foreground text-sm mb-4">
-                您已成功加入天使生态，获得 {REWARD_CONFIG.WELCOME_BONUS} 枚天使代币！
+                您已成功通过邀请注册，获得 {REWARD_CONFIG.WELCOME_BONUS} 枚天使代币！
               </p>
-              <div className="bg-gradient-primary/10 rounded-lg p-4 border border-angel-primary/20">
-                <p className="text-angel-primary font-bold text-xl">
-                  {user.angel_balance?.toLocaleString() || REWARD_CONFIG.WELCOME_BONUS} ANGEL
-                </p>
-                <p className="text-xs text-muted-foreground">新用户奖励已发放</p>
+              
+              <div className="space-y-3 mb-6">
+                <div className="bg-gradient-primary/10 rounded-lg p-4 border border-angel-primary/20">
+                  <p className="text-angel-primary font-bold text-xl">
+                    +{REWARD_CONFIG.WELCOME_BONUS} ANGEL
+                  </p>
+                  <p className="text-xs text-muted-foreground">新用户注册奖励</p>
+                </div>
+                
+                <div className="bg-angel-success/10 rounded-lg p-3 border border-angel-success/20">
+                  <p className="text-angel-success font-medium text-sm">
+                    邀请人也获得了 {REWARD_CONFIG.REFERRAL_L1} 枚代币奖励！
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-4">
-                即将跳转到主页...
-              </p>
+              
+              <div className="text-center">
+                <div className="animate-pulse text-angel-primary font-medium">
+                  正在跳转到主页...
+                </div>
+                <div className="w-full bg-angel-primary/20 rounded-full h-2 mt-2">
+                  <div className="bg-angel-primary h-2 rounded-full animate-pulse" style={{width: '100%'}}></div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -147,7 +194,7 @@ export default function InvitePage() {
                   <Users className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-foreground font-bold text-lg mb-2">
-                  {inviter?.username || `用户${inviter?.id?.slice(0, 6)}`} 邀请您加入
+                  {inviter?.username || `用户${inviter?.wallet_address?.slice(0, 6)}...${inviter?.wallet_address?.slice(-4)}`} 邀请您加入
                 </h3>
                 <p className="text-muted-foreground text-sm">天使加密生态系统</p>
               </div>
@@ -157,7 +204,7 @@ export default function InvitePage() {
                   <span className="text-muted-foreground text-sm">邀请人</span>
                   <div className="text-right">
                     <p className="text-foreground font-medium">
-                      {inviter?.username || `用户${inviter?.id?.slice(0, 6)}`}
+                      {inviter?.username || `用户${inviter?.wallet_address?.slice(0, 6)}...${inviter?.wallet_address?.slice(-4)}`}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       已邀请 {inviter?.total_referrals || 0} 人
@@ -165,12 +212,24 @@ export default function InvitePage() {
                   </div>
                 </div>
 
-                                  <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border">
-                    <span className="text-muted-foreground text-sm">邀请人地址</span>
-                    <Badge className="bg-angel-gold/20 text-angel-gold border-angel-gold/30 font-mono text-xs">
-                      {inviterWalletAddress?.slice(0, 6)}...{inviterWalletAddress?.slice(-4)}
-                    </Badge>
+                <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border">
+                  <span className="text-muted-foreground text-sm">邀请人地址</span>
+                  <Badge className="bg-angel-gold/20 text-angel-gold border-angel-gold/30 font-mono text-xs">
+                    {inviterWalletAddress?.slice(0, 6)}...{inviterWalletAddress?.slice(-4)}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border">
+                  <span className="text-muted-foreground text-sm">当前余额</span>
+                  <div className="text-right">
+                    <p className="text-foreground font-medium">
+                      {inviter?.angel_balance?.toLocaleString() || 0} ANGEL
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      总收益: {inviter?.total_earned?.toLocaleString() || 0}
+                    </p>
                   </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -240,9 +299,20 @@ export default function InvitePage() {
                   连接您的钱包，立即获得 {REWARD_CONFIG.WELCOME_BONUS} 枚天使代币
                 </p>
                 
-                                  <WalletConnect 
+                <div className="space-y-3">
+                  <WalletConnect 
                     onUserChange={handleUserChange}
                   />
+                  
+                  {isRegistering && (
+                    <div className="bg-angel-primary/10 rounded-lg p-3 border border-angel-primary/20">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-angel-primary"></div>
+                        <span className="text-sm text-angel-primary">正在处理邀请关系...</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 
                 <p className="text-xs text-muted-foreground">
                   支持 MetaMask、Trust Wallet 等主流钱包

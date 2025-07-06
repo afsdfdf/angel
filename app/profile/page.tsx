@@ -16,7 +16,7 @@ import { useAuth } from "@/lib/auth-context"
 import { DatabaseService, type Invitation } from "@/lib/database"
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, generateInviteLink } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const [notifications, setNotifications] = useState(true)
   const [inviteLink, setInviteLink] = useState('')
   const [invitations, setInvitations] = useState<Invitation[]>([])
@@ -28,9 +28,9 @@ export default function ProfilePage() {
   }, [])
 
   // 生成邀请链接
-  const generateLink = () => {
+  const generateLink = async () => {
     if (!user) return
-    const link = generateInviteLink()
+    const link = await DatabaseService.generateInviteLink(user.wallet_address)
     setInviteLink(link)
   }
 
@@ -88,7 +88,7 @@ export default function ProfilePage() {
 
     try {
       setIsLoading(true)
-      const newInviteLink = await DatabaseService.createInviteLink(user.id)
+      const newInviteLink = await DatabaseService.generateInviteLink(user.wallet_address)
 
       if (newInviteLink) {
         setInviteLink(newInviteLink)
@@ -193,7 +193,7 @@ export default function ProfilePage() {
               { label: "天使代币", value: `${user.angel_balance?.toLocaleString() || 0}`, emoji: "💰" },
               { label: "总收益", value: `${user.total_earned?.toLocaleString() || 0}`, emoji: "🎯" },
               { label: "推荐数", value: user.total_referrals?.toString() || "0", emoji: "👥" },
-              { label: "推荐码", value: user.referral_code || "未设置", emoji: "🏆" },
+              { label: "等级", value: `L${user.level || 1}`, emoji: "🏆" },
             ].map((stat, index) => (
               <div key={index} className="text-center p-3 bg-white/50 rounded-lg">
                 <div className="text-xl mb-1">{stat.emoji}</div>
@@ -229,20 +229,20 @@ export default function ProfilePage() {
                 我的推荐
               </h3>
               
-              {/* 推荐码 */}
+              {/* 钱包地址 */}
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm text-gray-600 mb-2 block">我的推荐码</label>
+                  <label className="text-sm text-gray-600 mb-2 block">我的钱包地址</label>
                   <div className="flex gap-2">
                     <Input
-                      value={user.referral_code || ''}
+                      value={user.wallet_address || ''}
                       readOnly
-                      className="flex-1 font-mono"
+                      className="flex-1 font-mono text-xs"
                     />
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => copyToClipboard(user.referral_code || '')}
+                      onClick={() => copyToClipboard(user.wallet_address || '')}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>

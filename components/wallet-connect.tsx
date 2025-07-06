@@ -4,42 +4,126 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Wallet, LogOut, Copy, ExternalLink, Gift, Users, Coins, Share2 } from "lucide-react"
-import { Web3Service } from "@/lib/web3"
+import { Wallet, LogOut, Copy, Gift, Users, Share2 } from "lucide-react"
 import { DatabaseService, type User, REWARD_CONFIG } from "@/lib/database"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 
 interface WalletConnectProps {
   onUserChange?: (user: User | null) => void
+  inviterWallet?: string // 邀请人钱包地址
 }
 
-export function WalletConnect({ onUserChange }: WalletConnectProps) {
+// 简化的钱包连接服务
+class SimpleWalletService {
+  // 检查是否安装了钱包
+  isWalletInstalled(): boolean {
+    return typeof window !== "undefined" && window.ethereum !== undefined
+  }
+
+  // 连接钱包
+  async connectWallet(): Promise<{ success: boolean; account?: string; error?: string }> {
+    try {
+      if (!this.isWalletInstalled()) {
+        return { success: false, error: "请安装 MetaMask 或其他以太坊钱包" }
+      }
+
+      // 请求连接钱包
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      })
+
+      if (accounts.length === 0) {
+        return { success: false, error: "未找到钱包账户" }
+      }
+
+      return { success: true, account: accounts[0] }
+    } catch (error: any) {
+      console.error("连接钱包失败:", error)
+      return { success: false, error: error.message || "连接钱包失败" }
+    }
+  }
+
+  // 签名消息
+  async signMessage(account: string, message: string): Promise<{ success: boolean; signature?: string; error?: string }> {
+    try {
+      if (!this.isWalletInstalled()) {
+        return { success: false, error: "钱包未安装" }
+      }
+
+      const signature = await window.ethereum.request({
+        method: "personal_sign",
+        params: [message, account],
+      })
+
+      return { success: true, signature }
+    } catch (error: any) {
+      console.error("签名失败:", error)
+      return { success: false, error: error.message || "签名失败" }
+    }
+  }
+
+  // 获取当前账户
+  async getCurrentAccount(): Promise<string | null> {
+    try {
+      if (!this.isWalletInstalled()) {
+        return null
+      }
+
+      const accounts = await window.ethereum.request({ method: "eth_accounts" })
+      return accounts.length > 0 ? accounts[0] : null
+    } catch (error) {
+      console.error("获取账户失败:", error)
+      return null
+    }
+  }
+}
+
+export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProps) {
+  const { user, login, logout } = useAuth()
   const [isConnected, setIsConnected] = useState(false)
   const [account, setAccount] = useState<string | null>(null)
-  const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [showReferralInput, setShowReferralInput] = useState(false)
-  const [referralCode, setReferralCode] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
-  const [web3Service, setWeb3Service] = useState<Web3Service | null>(null)
+  const router = useRouter()
+
+  const walletService = new SimpleWalletService()
 
   useEffect(() => {
-    // 在客户端初始化 Web3 服务
-    if (typeof window !== 'undefined') {
-      const service = Web3Service.getInstance()
-      setWeb3Service(service)
-      checkConnection(service)
+    // 检查是否已经连接
+    checkConnection()
+
+    // 监听账户变化
+    if (typeof window !== 'undefined' && window.ethereum) {
+      window.ethereum.on('accountsChanged', handleAccountsChanged)
+      window.ethereum.on('chainChanged', handleChainChanged)
+    }
+
+    return () => {
+      if (typeof window !== 'undefined' && window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged)
+        window.ethereum.removeListener('chainChanged', handleChainChanged)
+      }
     }
   }, [])
 
-  const checkConnection = async (service: Web3Service) => {
+  const checkConnection = async () => {
     try {
-      if (service.isWalletInstalled() && window.ethereum) {
-        const accounts = await window.ethereum.request({ method: "eth_accounts" })
-        if (accounts.length > 0) {
-          const account = accounts[0]
-          await loginWithWallet(account, service)
+      const currentAccount = await walletService.getCurrentAccount()
+      if (currentAccount) {
+        setAccount(currentAccount)
+        setIsConnected(true)
+        // 检查是否已经登录
+        try {
+          const userData = await DatabaseService.getUserByWalletAddress(currentAccount)
+          if (userData) {
+            login(userData)
+            onUserChange?.(userData)
+          }
+        } catch (dbError) {
+          console.warn("数据库连接失败，但钱包已连接:", dbError)
+          // 即使数据库不可用，也保持钱包连接状态
         }
       }
     } catch (error) {
@@ -47,47 +131,42 @@ export function WalletConnect({ onUserChange }: WalletConnectProps) {
     }
   }
 
-  const loginWithWallet = async (walletAddress: string, service: Web3Service) => {
-    try {
-      setAccount(walletAddress)
-      setIsConnected(true)
-
-      // 从数据库获取用户信息
-      const userData = await DatabaseService.getUserByWalletAddress(walletAddress)
-      
-      if (userData) {
-        // 老用户，直接登录
-        setUser(userData)
-        onUserChange?.(userData)
-              } else {
-          // 新用户，显示推荐码输入
-          setShowReferralInput(true)
-        }
-    } catch (error) {
-      console.error("登录失败:", error)
-      setError("登录失败")
+  const handleAccountsChanged = (accounts: string[]) => {
+    if (accounts.length === 0) {
+      // 钱包断开连接
+      disconnectWallet()
+    } else if (accounts[0] !== account) {
+      // 账户切换
+      setAccount(accounts[0])
+      logout()
+      onUserChange?.(null)
+      // 可以选择自动重新登录
+      // loginWithWallet(accounts[0])
     }
   }
 
-  const connectWallet = async () => {
-    if (!web3Service) {
-      setError("Web3 服务未初始化")
-      return
-    }
+  const handleChainChanged = () => {
+    // 网络切换时重新加载页面
+    window.location.reload()
+  }
 
+  const connectWallet = async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const result = await web3Service.connectWallet()
+      const result = await walletService.connectWallet()
 
       if (!result.success) {
         setError(result.error || "连接失败")
         return
       }
 
-      // 直接登录
-      await loginWithWallet(result.account!, web3Service)
+      setAccount(result.account!)
+      setIsConnected(true)
+
+      // 自动登录
+      await loginWithWallet(result.account!)
     } catch (error: any) {
       console.error("连接钱包失败:", error)
       setError(error.message || "连接失败")
@@ -96,68 +175,70 @@ export function WalletConnect({ onUserChange }: WalletConnectProps) {
     }
   }
 
-  const createNewUser = async (walletAddress: string, refCode?: string) => {
+  const loginWithWallet = async (walletAddress: string) => {
     try {
       setIsLoading(true)
-      
-      // 如果有推荐码，验证推荐码
-      if (refCode) {
-        const referrer = await DatabaseService.getUserByReferralCode(refCode)
-        if (!referrer) {
-          setError("推荐码无效")
-          setIsLoading(false)
-          return
-        }
-      }
+      setError(null)
 
-      // 创建新用户
-      const newUser = {
-        wallet_address: walletAddress.toLowerCase(),
-        total_referrals: 0,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
+      // 生成签名消息
+      const message = `欢迎来到Angel Crypto App！\n\n请签名以验证您的身份。\n\n钱包地址: ${walletAddress}\n时间戳: ${Date.now()}`
       
-      const userData = await DatabaseService.createUser(newUser)
+      // 请求用户签名
+      const signResult = await walletService.signMessage(walletAddress, message)
       
-      if (!userData) {
-        setError("用户创建失败")
-        setIsLoading(false)
+      if (!signResult.success) {
+        setError(signResult.error || "签名失败")
         return
       }
 
-      // 如果有推荐码，处理推荐关系
-      if (refCode) {
-        await DatabaseService.acceptInvitation(refCode, walletAddress)
+      try {
+        // 检查是否为新用户
+        const isNewUser = await DatabaseService.isNewUser(walletAddress)
+        
+        if (isNewUser) {
+          // 新用户，处理邀请注册
+          let success = false
+          if (inviterWallet) {
+            success = await DatabaseService.processInviteRegistration(walletAddress, inviterWallet)
+          } else {
+            // 没有邀请人，直接创建用户
+            const newUser = await DatabaseService.createUser({
+              wallet_address: walletAddress.toLowerCase()
+            })
+            success = !!newUser
+          }
+          
+          if (!success) {
+            console.warn("用户创建失败，但钱包已连接")
+            // 不设置错误，允许用户继续使用应用
+          }
+        }
+
+        // 获取用户信息
+        const userData = await DatabaseService.getUserByWalletAddress(walletAddress)
+        if (userData) {
+          login(userData)
+          onUserChange?.(userData)
+        } else {
+          console.warn("未找到用户数据，但钱包已连接")
+          // 不设置错误，允许用户继续使用应用
+        }
+      } catch (dbError) {
+        console.warn("数据库操作失败，但钱包已连接:", dbError)
+        // 即使数据库不可用，也不阻止钱包连接
       }
-
-      setUser(userData)
-      onUserChange?.(userData)
-      setShowReferralInput(false)
-      setReferralCode("")
-      setIsLoading(false)
     } catch (error: any) {
-      console.error("创建用户失败:", error)
-      setError(error.message || "创建用户失败")
+      console.error("登录失败:", error)
+      setError(error.message || "登录失败")
+    } finally {
       setIsLoading(false)
     }
   }
 
-  const handleReferralSubmit = async () => {
-    if (!account) return
-    await createNewUser(account, referralCode || undefined)
-  }
-
-  const disconnectWallet = async () => {
-    if (web3Service) {
-      await web3Service.disconnectWallet()
-    }
+  const disconnectWallet = () => {
     setIsConnected(false)
     setAccount(null)
-    setUser(null)
-    setShowReferralInput(false)
-    setReferralCode("")
+    logout()
     setError(null)
     setShowDropdown(false)
     onUserChange?.(null)
@@ -169,17 +250,11 @@ export function WalletConnect({ onUserChange }: WalletConnectProps) {
     }
   }
 
-  const copyReferralCode = () => {
-    if (user?.referral_code) {
-      navigator.clipboard.writeText(user.referral_code)
-    }
-  }
-
   const copyInviteLink = async () => {
     if (!user) return
     
     try {
-      const inviteLink = await DatabaseService.createInviteLink(user.id)
+      const inviteLink = await DatabaseService.generateInviteLink(user.wallet_address)
       if (inviteLink) {
         navigator.clipboard.writeText(inviteLink)
         // 可以添加一个提示消息
@@ -193,7 +268,7 @@ export function WalletConnect({ onUserChange }: WalletConnectProps) {
     if (!user) return
     
     try {
-      const inviteLink = await DatabaseService.createInviteLink(user.id)
+      const inviteLink = await DatabaseService.generateInviteLink(user.wallet_address)
       if (inviteLink && navigator.share) {
         await navigator.share({
           title: '加入天使加密',
@@ -226,65 +301,6 @@ export function WalletConnect({ onUserChange }: WalletConnectProps) {
           <Wallet className="w-4 h-4" />
           <span className="hidden sm:inline">{isLoading ? "连接中..." : "连接钱包"}</span>
         </Button>
-      </div>
-    )
-  }
-
-  // 新用户推荐码输入
-  if (showReferralInput) {
-    return (
-      <div className="relative">
-        {/* 背景遮罩 */}
-        <div className="fixed inset-0 bg-black/50 z-40" />
-        
-        {/* 推荐码输入弹窗 */}
-        <Card className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 max-w-[90vw] glass-card border-angel-primary/30 shadow-2xl z-50">
-          <CardContent className="p-6">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mx-auto mb-4 shadow-angel-primary">
-                <Gift className="w-8 h-8 text-white" />
-              </div>
-              <h3 className="text-foreground font-bold text-lg mb-2">欢迎加入天使生态</h3>
-              <p className="text-muted-foreground text-sm mb-2">您将获得 {REWARD_CONFIG.WELCOME_BONUS} 枚天使代币！</p>
-              <p className="text-muted-foreground text-xs">输入推荐码可获得额外奖励</p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <Input
-                  placeholder="输入推荐码 (可选)"
-                  value={referralCode}
-                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                  className="bg-secondary/50 border-border text-foreground text-center font-mono"
-                />
-              </div>
-
-              {error && (
-                <div className="bg-angel-error/10 border border-angel-error/30 rounded-lg p-3">
-                  <p className="text-angel-error text-sm text-center">{error}</p>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => handleReferralSubmit()}
-                  className="flex-1 border-border text-muted-foreground hover:bg-secondary touch-feedback"
-                  disabled={isLoading}
-                >
-                  跳过
-                </Button>
-                <Button
-                  onClick={handleReferralSubmit}
-                  disabled={isLoading}
-                  className="flex-1 bg-gradient-primary text-white hover:opacity-90 touch-feedback"
-                >
-                  {isLoading ? "创建中..." : "确认"}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     )
   }
@@ -373,9 +389,10 @@ export function WalletConnect({ onUserChange }: WalletConnectProps) {
                       <Button 
                         variant="ghost" 
                         size="icon" 
+                        onClick={() => window.open(`https://bscscan.com/address/${account}`, '_blank')}
                         className="w-6 h-6 text-muted-foreground hover:text-foreground touch-feedback"
                       >
-                        <ExternalLink className="w-3 h-3" />
+                        <Gift className="w-3 h-3" />
                       </Button>
                     </div>
                   </div>
@@ -384,41 +401,42 @@ export function WalletConnect({ onUserChange }: WalletConnectProps) {
                   </p>
                 </div>
 
-                {user?.referral_code && (
-                  <div className="bg-secondary/30 rounded-lg p-3 border border-border">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-muted-foreground text-sm">我的推荐</span>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={copyReferralCode}
-                          className="w-6 h-6 text-muted-foreground hover:text-foreground touch-feedback"
-                        >
-                          <Copy className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={shareInviteLink}
-                          className="w-6 h-6 text-muted-foreground hover:text-foreground touch-feedback"
-                        >
-                          <Share2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-angel-gold font-bold font-mono">{user.referral_code}</p>
-                      <Badge className="bg-angel-accent/20 text-angel-accent border-angel-accent/30 text-xs">
-                        <Users className="w-3 h-3 mr-1" />
-                        {user.total_referrals}人
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      <p>邀请奖励: 一级{REWARD_CONFIG.REFERRAL_L1} | 二级{REWARD_CONFIG.REFERRAL_L2} | 三级{REWARD_CONFIG.REFERRAL_L3}</p>
+                {/* 邀请功能 */}
+                <div className="bg-secondary/30 rounded-lg p-3 border border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-muted-foreground text-sm">邀请好友</span>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={copyInviteLink}
+                        className="w-6 h-6 text-muted-foreground hover:text-foreground touch-feedback"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={shareInviteLink}
+                        className="w-6 h-6 text-muted-foreground hover:text-foreground touch-feedback"
+                      >
+                        <Share2 className="w-3 h-3" />
+                      </Button>
                     </div>
                   </div>
-                )}
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-angel-gold font-bold text-xs">
+                      {account?.slice(0, 8)}...{account?.slice(-6)}
+                    </p>
+                    <Badge className="bg-angel-accent/20 text-angel-accent border-angel-accent/30 text-xs">
+                      <Users className="w-3 h-3 mr-1" />
+                      {user?.total_referrals || 0}人
+                    </Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    <p>邀请奖励: 一级{REWARD_CONFIG.REFERRAL_L1} | 二级{REWARD_CONFIG.REFERRAL_L2} | 三级{REWARD_CONFIG.REFERRAL_L3}</p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -426,4 +444,11 @@ export function WalletConnect({ onUserChange }: WalletConnectProps) {
       )}
     </div>
   )
+}
+
+// 全局声明
+declare global {
+  interface Window {
+    ethereum?: any
+  }
 }

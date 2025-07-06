@@ -1,61 +1,54 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from './config';
-import { MockDatabaseService } from './database-mock';
 
 // 检查是否为开发环境
 const isDev = process.env.NODE_ENV === 'development';
 
-// 检查是否使用模拟模式
-const isUsingMockMode = config.supabase.url === 'https://demo.supabase.co' || 
-                      config.supabase.anonKey === 'demo-anon-key';
-
-// 验证Supabase配置
+// 验证 Supabase 配置
 const validateSupabaseConfig = () => {
-  if (!config.supabase.url || config.supabase.url === 'https://demo.supabase.co') {
-    if (!isDev) {
-      console.error('❌ NEXT_PUBLIC_SUPABASE_URL is required in production');
-      // 在生产环境中不抛出错误，而是使用模拟模式
-      console.warn('⚠️  Falling back to mock mode due to missing Supabase configuration');
-    }
-    console.warn('⚠️  Using demo Supabase URL. Please configure your environment variables.');
+  let url = config.supabase.url;
+  let key = config.supabase.anonKey;
+  
+  // 移除可能的引号
+  if (url) url = url.replace(/^["']|["']$/g, '');
+  if (key) key = key.replace(/^["']|["']$/g, '');
+  
+  console.log('🔍 检查 Supabase 配置:');
+  console.log('   URL:', url ? `${url.substring(0, 30)}...` : '未设置');
+  console.log('   Key:', key ? `${key.substring(0, 30)}...` : '未设置');
+  
+  if (!url || !key || url.includes('your-') || key.includes('your-') || url.includes('placeholder') || key.includes('placeholder')) {
+    console.warn('Supabase 配置未找到或使用默认值，将使用模拟模式');
+    return { url: '', key: '', isValid: false };
   }
   
-  if (!config.supabase.anonKey || config.supabase.anonKey === 'demo-anon-key') {
-    if (!isDev) {
-      console.error('❌ NEXT_PUBLIC_SUPABASE_ANON_KEY is required in production');
-      // 在生产环境中不抛出错误，而是使用模拟模式
-      console.warn('⚠️  Falling back to mock mode due to missing Supabase configuration');
-    }
-    console.warn('⚠️  Using demo Supabase anon key. Please configure your environment variables.');
-  }
-
-  if (isUsingMockMode) {
-    console.log('🎭 Running in mock database mode');
-  }
+  return { url, key, isValid: true };
 };
 
-// 验证配置
-validateSupabaseConfig();
+const { url, key, isValid } = validateSupabaseConfig();
 
-// 创建Supabase客户端
-export const supabase = createClient(
-  config.supabase.url,
-  config.supabase.anonKey
-);
+// 创建 Supabase 客户端 
+const supabase = isValid && url && key ? createClient(url.replace(/^["']|["']$/g, ''), key.replace(/^["']|["']$/g, '')) : null;
 
-// 创建管理员客户端（用于服务端操作）
-export const supabaseAdmin = createClient(
-  config.supabase.url,
-  config.supabase.serviceRoleKey,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-);
+// 如果数据库不可用，抛出错误
+if (!supabase) {
+  console.error('❌ Supabase 客户端初始化失败！请检查环境变量配置：');
+  console.error('   - NEXT_PUBLIC_SUPABASE_URL');
+  console.error('   - NEXT_PUBLIC_SUPABASE_ANON_KEY');
+}
 
-// 数据库类型定义
+// 标记数据库是否可用
+export const isDatabaseAvailable = isValid && supabase !== null;
+
+// 奖励配置
+export const REWARD_CONFIG = {
+  WELCOME_BONUS: 10000,    // 新用户注册奖励
+  REFERRAL_L1: 50,         // 一级邀请奖励
+  REFERRAL_L2: 25,         // 二级邀请奖励
+  REFERRAL_L3: 10,         // 三级邀请奖励
+} as const;
+
+// 数据类型定义
 export interface User {
   id: string;
   wallet_address: string;
@@ -63,11 +56,10 @@ export interface User {
   username?: string;
   avatar_url?: string;
   angel_balance: number;
-  referral_code: string;
   referred_by?: string;
   total_referrals: number;
   total_earned: number;
-  level?: number;
+  level: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -78,8 +70,7 @@ export interface Invitation {
   inviter_id: string;
   invitee_id?: string;
   invitee_wallet_address?: string;
-  referral_code: string;
-  invite_link: string;
+  inviter_wallet_address: string;
   status: 'pending' | 'accepted' | 'expired';
   level: number;
   reward_amount: number;
@@ -112,49 +103,56 @@ export interface UserSession {
   created_at: string;
 }
 
-// 奖励配置
-export const REWARD_CONFIG = {
-  WELCOME_BONUS: 1000,
-  REFERRAL_L1: 500,
-  REFERRAL_L2: 250,
-  REFERRAL_L3: 100,
-} as const;
-
-// 数据库操作类
+// 主数据库服务类
 export class DatabaseService {
-  // 用户相关操作
-  static async createUser(userData: Partial<User>): Promise<User | null> {
-    // 如果在模拟模式下，使用模拟服务
-    if (isUsingMockMode) {
-      return MockDatabaseService.createUser(userData);
-    }
-
+  // 数据库健康检查
+  static async isHealthy(): Promise<boolean> {
     try {
-      // 生成推荐码
-      const referralCode = userData.referral_code || this.generateReferralCode();
+      if (!supabase) {
+        console.warn('Supabase 配置未找到');
+        return false;
+      }
       
-      const newUser = {
-        ...userData,
-        referral_code: referralCode,
-        angel_balance: 0,
-        total_referrals: 0,
-        total_earned: 0,
-        is_active: true,
-      };
+      // 尝试执行一个简单的查询来检查连接
+      const { error } = await supabase
+        .from('users')
+        .select('id')
+        .limit(1);
+      
+      return !error;
+    } catch (error) {
+      console.error('数据库健康检查失败:', error);
+      return false;
+    }
+  }
+  // 用户管理
+  static async createUser(userData: Partial<User>): Promise<User | null> {
+    try {
+      if (!supabase) {
+        console.error('Supabase 配置未找到，请配置数据库连接');
+        return null;
+      }
 
       const { data, error } = await supabase
         .from('users')
-        .insert([newUser])
+        .insert([{
+          ...userData,
+          angel_balance: REWARD_CONFIG.WELCOME_BONUS, // 新用户默认获得欢迎奖励
+          total_referrals: 0,
+          total_earned: REWARD_CONFIG.WELCOME_BONUS,
+          level: 1,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }])
         .select()
         .single();
-      
+
       if (error) throw error;
-      
-      // 发放欢迎奖励
-      if (data) {
-        await this.giveWelcomeReward(data.id);
-      }
-      
+
+      // 发放欢迎奖励记录
+      await this.recordWelcomeReward(data.id);
+
       return data;
     } catch (error) {
       console.error('创建用户失败:', error);
@@ -163,40 +161,24 @@ export class DatabaseService {
   }
 
   static async getUserByWalletAddress(walletAddress: string): Promise<User | null> {
-    // 如果在模拟模式下，使用模拟服务
-    if (isUsingMockMode) {
-      return MockDatabaseService.getUserByWalletAddress(walletAddress);
-    }
-
     try {
+      // 检查是否有有效的 Supabase 配置
+      if (!supabase) {
+        console.error('Supabase 配置未找到，请配置数据库连接');
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('wallet_address', walletAddress.toLowerCase())
         .single();
       
-      if (error && error.code !== 'PGRST116') throw error;
-      return data || null;
-    } catch (error) {
-      console.error('获取用户失败:', error);
-      return null;
-    }
-  }
-
-  static async getUserByReferralCode(referralCode: string): Promise<User | null> {
-    // 如果在模拟模式下，使用模拟服务
-    if (isUsingMockMode) {
-      return MockDatabaseService.getUserByReferralCode(referralCode);
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('referral_code', referralCode)
-        .single();
+      if (error && error.code !== 'PGRST116') {
+        console.error('数据库查询错误:', error);
+        return null;
+      }
       
-      if (error && error.code !== 'PGRST116') throw error;
       return data || null;
     } catch (error) {
       console.error('获取用户失败:', error);
@@ -206,6 +188,11 @@ export class DatabaseService {
 
   static async updateUser(userId: string, updates: Partial<User>): Promise<User | null> {
     try {
+      if (!supabase) {
+        console.error('Supabase 配置未找到，请配置数据库连接');
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('users')
         .update({ ...updates, updated_at: new Date().toISOString() })
@@ -221,135 +208,53 @@ export class DatabaseService {
     }
   }
 
-  // 奖励系统
-  static async giveWelcomeReward(userId: string): Promise<boolean> {
-    try {
-      // 添加余额
-      const { error: balanceError } = await supabase.rpc('add_user_balance', {
-        user_id: userId,
-        amount: REWARD_CONFIG.WELCOME_BONUS
-      });
-
-      if (balanceError) throw balanceError;
-
-      // 记录奖励
-      const { error: recordError } = await supabase
-        .from('reward_records')
-        .insert([{
-          user_id: userId,
-          reward_type: 'welcome',
-          amount: REWARD_CONFIG.WELCOME_BONUS,
-          description: '新用户欢迎奖励',
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-        }]);
-
-      if (recordError) throw recordError;
-      return true;
-    } catch (error) {
-      console.error('发放欢迎奖励失败:', error);
-      return false;
-    }
-  }
-
-  static async processReferralRewards(newUserId: string, referralCode: string): Promise<boolean> {
-    try {
-      const { error } = await supabase.rpc('process_referral_rewards', {
-        new_user_id: newUserId,
-        referral_code: referralCode
-      });
-
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      console.error('处理邀请奖励失败:', error);
-      return false;
-    }
-  }
-
   // 邀请系统
-  static async createInviteLink(userId: string): Promise<string | null> {
+  static async processInviteRegistration(newUserWallet: string, inviterWallet: string): Promise<boolean> {
     try {
-      const user = await this.getUserById(userId);
-      if (!user) return null;
+      if (!supabase) {
+        console.error('Supabase 配置未找到，请配置数据库连接');
+        return false;
+      }
 
-      const inviteLink = `${config.app.url}/invite/${user.wallet_address}`;
-      
-      // 创建邀请记录
-      const { error } = await supabase
-        .from('invitations')
-        .insert([{
-          inviter_id: userId,
-          referral_code: user.referral_code,
-          invite_link: inviteLink,
-          status: 'pending',
-          level: 1,
-          reward_amount: REWARD_CONFIG.REFERRAL_L1,
-        }]);
+      // 调用数据库函数处理邀请注册
+      const { data, error } = await supabase
+        .rpc('process_invite_registration', {
+          new_user_wallet: newUserWallet.toLowerCase(),
+          inviter_wallet: inviterWallet.toLowerCase()
+        });
 
       if (error) throw error;
-      return inviteLink;
+      return data === true;
     } catch (error) {
-      console.error('创建邀请链接失败:', error);
-      return null;
-    }
-  }
-
-  static async acceptInvitation(inviterWalletAddress: string, inviteeWalletAddress: string): Promise<boolean> {
-    try {
-      // 查找邀请人
-      const inviter = await this.getUserByWalletAddress(inviterWalletAddress);
-      if (!inviter) return false;
-
-      // 获取新用户
-      const newUser = await this.getUserByWalletAddress(inviteeWalletAddress);
-      if (!newUser) return false;
-
-      // 更新用户的推荐关系
-      await this.updateUser(newUser.id, { referred_by: inviter.id });
-
-      // 更新邀请记录
-      const { error: updateError } = await supabase
-        .from('invitations')
-        .update({
-          status: 'accepted',
-          invitee_id: newUser.id,
-          invitee_wallet_address: inviteeWalletAddress.toLowerCase(),
-          accepted_at: new Date().toISOString(),
-        })
-        .eq('inviter_id', inviter.id)
-        .eq('status', 'pending');
-
-      if (updateError) throw updateError;
-
-      // 处理多级奖励
-      await this.processReferralRewards(newUser.id, inviter.referral_code);
-
-      return true;
-    } catch (error) {
-      console.error('接受邀请失败:', error);
+      console.error('处理邀请注册失败:', error);
       return false;
     }
   }
 
-  static async getUserById(userId: string): Promise<User | null> {
+  static async isNewUser(walletAddress: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') throw error;
-      return data || null;
+      const existingUser = await this.getUserByWalletAddress(walletAddress);
+      return !existingUser;
     } catch (error) {
-      console.error('获取用户失败:', error);
-      return null;
+      console.error('检查新用户失败:', error);
+      return false;
     }
+  }
+
+  // 生成邀请链接
+  static async generateInviteLink(walletAddress: string, baseUrl?: string): Promise<string> {
+    const base = baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://www.angelcoin.app');
+    return `${base}/invite/${walletAddress}`;
   }
 
   static async getInvitationsByUser(userId: string): Promise<Invitation[]> {
     try {
+      // 检查数据库是否可用
+      if (!supabase) {
+        console.error('数据库不可用，请配置数据库连接');
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('invitations')
         .select('*')
@@ -364,8 +269,65 @@ export class DatabaseService {
     }
   }
 
+  static async getInvitationsByInviterWallet(inviterWallet: string): Promise<Invitation[]> {
+    try {
+      // 检查数据库是否可用
+      if (!supabase) {
+        console.error('数据库不可用，请配置数据库连接');
+        return [];
+      }
+
+      const { data, error } = await supabase
+        .from('invitations')
+        .select('*')
+        .eq('inviter_wallet_address', inviterWallet.toLowerCase())
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('获取邀请列表失败:', error);
+      return [];
+    }
+  }
+
+  // 奖励系统
+  static async recordWelcomeReward(userId: string): Promise<boolean> {
+    try {
+      // 检查数据库是否可用
+      if (!supabase) {
+        console.error('数据库不可用，请配置数据库连接');
+        return false;
+      }
+
+      const { error } = await supabase
+        .from('reward_records')
+        .insert([{
+          user_id: userId,
+          reward_type: 'welcome',
+          amount: REWARD_CONFIG.WELCOME_BONUS,
+          description: '新用户注册奖励',
+          status: 'completed',
+          created_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        }]);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('记录欢迎奖励失败:', error);
+      return false;
+    }
+  }
+
   static async getRewardRecords(userId: string): Promise<RewardRecord[]> {
     try {
+      // 检查数据库是否可用
+      if (!supabase) {
+        console.error('数据库不可用，请配置数据库连接');
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('reward_records')
         .select('*')
@@ -380,9 +342,35 @@ export class DatabaseService {
     }
   }
 
+  static async getUserById(userId: string): Promise<User | null> {
+    try {
+      if (!supabase) {
+        console.error('Supabase 配置未找到，请配置数据库连接');
+        return null;
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      return data || null;
+    } catch (error) {
+      console.error('获取用户失败:', error);
+      return null;
+    }
+  }
+
   // 会话管理
   static async createSession(sessionData: Partial<UserSession>): Promise<UserSession | null> {
     try {
+      if (!supabase) {
+        console.error('Supabase 配置未找到，请配置数据库连接');
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('user_sessions')
         .insert([sessionData])
@@ -399,11 +387,15 @@ export class DatabaseService {
 
   static async getSessionByToken(sessionToken: string): Promise<UserSession | null> {
     try {
+      if (!supabase) {
+        console.error('Supabase 配置未找到，请配置数据库连接');
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('user_sessions')
         .select('*')
         .eq('session_token', sessionToken)
-        .gt('expires_at', new Date().toISOString())
         .single();
       
       if (error && error.code !== 'PGRST116') throw error;
@@ -416,6 +408,11 @@ export class DatabaseService {
 
   static async deleteSession(sessionToken: string): Promise<boolean> {
     try {
+      if (!supabase) {
+        console.error('Supabase 配置未找到，请配置数据库连接');
+        return false;
+      }
+
       const { error } = await supabase
         .from('user_sessions')
         .delete()
@@ -429,27 +426,19 @@ export class DatabaseService {
     }
   }
 
-  // 工具方法
-  static generateReferralCode(): string {
-    return 'ANGEL' + Math.random().toString(36).substr(2, 6).toUpperCase();
-  }
-
-  static generateInviteLink(walletAddress: string): string {
-    return `${config.app.url}/invite/${walletAddress}`;
-  }
-
-  // 管理员方法
+  // 管理员功能
   static async getAllUsers(): Promise<User[]> {
     try {
-      if (isUsingMockMode) {
-        return MockDatabaseService.getAllUsers();
+      if (!supabase) {
+        console.error('Supabase 配置未找到，请配置数据库连接');
+        return [];
       }
 
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .order('created_at', { ascending: false });
-
+      
       if (error) throw error;
       return data || [];
     } catch (error) {
@@ -460,15 +449,16 @@ export class DatabaseService {
 
   static async getAllInvitations(): Promise<Invitation[]> {
     try {
-      if (isUsingMockMode) {
-        return MockDatabaseService.getAllInvitations();
+      if (!supabase) {
+        console.error('Supabase 配置未找到，请配置数据库连接');
+        return [];
       }
 
       const { data, error } = await supabase
         .from('invitations')
         .select('*')
         .order('created_at', { ascending: false });
-
+      
       if (error) throw error;
       return data || [];
     } catch (error) {

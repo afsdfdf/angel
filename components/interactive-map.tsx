@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,13 +16,29 @@ export function InteractiveMap({ onLandSelect }: InteractiveMapProps) {
   const [selectedLand, setSelectedLand] = useState<any>(null)
   const [mapLayer, setMapLayer] = useState<"ownership" | "rarity" | "terrain" | "income">("ownership")
 
-  // 简化的地图数据
-  const mapData = [
+  // 地图数据 - 在实际应用中应从 API 获取
+  const [mapData, setMapData] = useState([
     { id: 1, x: 0, y: 0, rarity: "神话", terrain: "圣地", income: 180, isOwned: true, owner: "你", price: null },
     { id: 2, x: 1, y: 0, rarity: "传说", terrain: "山峰", income: 150, isOwned: false, owner: null, price: 3000 },
     { id: 3, x: 0, y: 1, rarity: "史诗", terrain: "森林", income: 120, isOwned: true, owner: "其他用户", price: null },
     { id: 4, x: 1, y: 1, rarity: "稀有", terrain: "湖泊", income: 90, isOwned: false, owner: null, price: 1500 },
-  ]
+  ])
+
+  // 从 API 加载地图数据
+  useEffect(() => {
+    const loadMapData = async () => {
+      try {
+        // TODO: 实现从 API 获取地图数据
+        // const response = await fetch('/api/map/lands')
+        // const data = await response.json()
+        // setMapData(data)
+      } catch (error) {
+        console.error('加载地图数据失败:', error)
+      }
+    }
+    
+    loadMapData()
+  }, [])
 
   const handleZoom = (delta: number) => {
     const newZoom = Math.max(0.5, Math.min(3, zoom + delta))

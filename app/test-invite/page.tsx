@@ -22,7 +22,7 @@ interface TestResult {
 }
 
 export default function TestInvitePage() {
-  const { user, isAuthenticated, generateInviteLink } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const [inviteLink, setInviteLink] = useState<string>("")
   const [testWalletAddress, setTestWalletAddress] = useState<string>("")
   const [testResults, setTestResults] = useState<TestResult>({
@@ -65,7 +65,7 @@ export default function TestInvitePage() {
 
     setIsLoading(true)
     try {
-      const link = generateInviteLink()
+      const link = await DatabaseService.generateInviteLink(user.wallet_address)
       setInviteLink(link)
       
       // 验证链接格式
@@ -112,7 +112,7 @@ export default function TestInvitePage() {
     if (!user) return
 
     try {
-      const newInviteLink = await DatabaseService.createInviteLink(user.id)
+      const newInviteLink = await DatabaseService.generateInviteLink(user.wallet_address)
       setTestResults(prev => ({
         ...prev,
         inviteCreation: !!newInviteLink,
@@ -213,8 +213,8 @@ export default function TestInvitePage() {
                     <p className="font-mono text-xs">{user?.wallet_address}</p>
                   </div>
                   <div className="p-3 bg-secondary/30 rounded-lg">
-                    <p className="text-sm text-muted-foreground">推荐码</p>
-                    <p className="font-mono text-xs">{user?.referral_code}</p>
+                    <p className="text-sm text-muted-foreground">ANGEL 余额</p>
+                    <p className="font-mono text-xs">{user?.angel_balance || 0} ANGEL</p>
                   </div>
                 </div>
               )}
@@ -331,7 +331,9 @@ export default function TestInvitePage() {
                               {new Date(invitation.created_at).toLocaleDateString()}
                             </span>
                           </div>
-                          <p className="font-mono text-xs break-all mb-1">{invitation.invite_link}</p>
+                          <p className="font-mono text-xs break-all mb-1">
+                            邀请人: {invitation.inviter_wallet_address}
+                          </p>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span>奖励: {invitation.reward_amount} ANGEL</span>
                             <span>等级: L{invitation.level}</span>
@@ -361,7 +363,7 @@ export default function TestInvitePage() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">数据库模式:</span>
                       <Badge variant="outline">
-                        {process.env.NODE_ENV === 'development' ? 'Mock' : 'Production'}
+                        Production
                       </Badge>
                     </div>
                   </div>

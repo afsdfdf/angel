@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Share2, Users, Gift, ExternalLink } from 'lucide-react';
+import { Copy, Share2, Users, Gift, ExternalLink, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function InviteSystem() {
@@ -42,6 +42,7 @@ export function InviteSystem() {
 
   // 生成邀请链接
   const generateLink = () => {
+    if (!user) return;
     const link = generateInviteLink();
     setInviteLink(link);
   };
@@ -79,22 +80,10 @@ export function InviteSystem() {
     }
   };
 
-  // 创建新邀请
-  const createInvitation = async () => {
-    if (!user || !isClient) return;
-
-    try {
-      const newInviteLink = await DatabaseService.createInviteLink(user.id);
-
-      if (newInviteLink) {
-        setInviteLink(newInviteLink);
-        toast.success('邀请链接创建成功');
-        // 重新加载邀请记录
-        loadInvitations();
-      }
-    } catch (error) {
-      console.error('创建邀请失败:', error);
-      toast.error('创建邀请失败');
+  // 打开邀请链接
+  const openInviteLink = () => {
+    if (inviteLink && isClient && typeof window !== 'undefined') {
+      window.open(inviteLink, '_blank');
     }
   };
 
@@ -137,13 +126,15 @@ export function InviteSystem() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">我的邀请码</CardTitle>
+            <CardTitle className="text-sm font-medium">我的钱包</CardTitle>
             <Gift className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{user.referral_code}</div>
+            <div className="text-lg font-bold font-mono">
+              {user.wallet_address.slice(0, 6)}...{user.wallet_address.slice(-4)}
+            </div>
             <p className="text-xs text-muted-foreground">
-              分享给朋友获得奖励
+              用于生成邀请链接
             </p>
           </CardContent>
         </Card>
@@ -168,7 +159,7 @@ export function InviteSystem() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {invitations.reduce((sum, inv) => sum + (inv.reward_amount || 0), 0)}
+              {user.total_earned?.toLocaleString() || 0}
             </div>
             <p className="text-xs text-muted-foreground">
               通过邀请获得的奖励
@@ -189,23 +180,23 @@ export function InviteSystem() {
             <CardHeader>
               <CardTitle>邀请朋友</CardTitle>
               <CardDescription>
-                分享您的邀请码或链接，朋友注册后您将获得奖励
+                分享您的邀请链接，朋友注册后您将获得奖励
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="referral-code">我的邀请码</Label>
+                <Label htmlFor="wallet-address">我的钱包地址</Label>
                 <div className="flex gap-2">
                   <Input
-                    id="referral-code"
-                    value={user.referral_code}
+                    id="wallet-address"
+                    value={user.wallet_address}
                     readOnly
-                    className="flex-1"
+                    className="flex-1 font-mono text-sm"
                   />
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => copyToClipboard(user.referral_code)}
+                    onClick={() => copyToClipboard(user.wallet_address)}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -219,7 +210,7 @@ export function InviteSystem() {
                     id="invite-link"
                     value={inviteLink}
                     readOnly
-                    className="flex-1"
+                    className="flex-1 text-sm"
                   />
                   <Button
                     variant="outline"
@@ -239,16 +230,43 @@ export function InviteSystem() {
               </div>
 
               <div className="flex gap-2">
-                <Button onClick={createInvitation} className="flex-1">
-                  创建新邀请
+                <Button
+                  variant="outline"
+                  onClick={openInviteLink}
+                  className="flex-1"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  预览邀请页面
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => isClient && window.open(inviteLink, '_blank')}
+                  onClick={() => copyToClipboard(inviteLink)}
                 >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  预览
+                  <QrCode className="h-4 w-4 mr-2" />
+                  生成二维码
                 </Button>
+              </div>
+
+              {/* 奖励说明 */}
+              <div className="bg-gradient-to-r from-angel-primary/10 to-angel-secondary/10 rounded-lg p-4 border border-angel-primary/20">
+                <h4 className="font-medium text-foreground mb-2">奖励机制</h4>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-background/50 rounded p-2">
+                    <p className="text-xs text-muted-foreground">新用户</p>
+                    <p className="font-bold text-angel-primary">100</p>
+                  </div>
+                  <div className="bg-background/50 rounded p-2">
+                    <p className="text-xs text-muted-foreground">一级邀请</p>
+                    <p className="font-bold text-angel-success">50</p>
+                  </div>
+                  <div className="bg-background/50 rounded p-2">
+                    <p className="text-xs text-muted-foreground">二级邀请</p>
+                    <p className="font-bold text-angel-secondary">25</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  每成功邀请一位新用户，您将获得相应的ANGEL代币奖励
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -284,7 +302,7 @@ export function InviteSystem() {
                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">
+                          <span className="text-sm font-medium font-mono">
                             {invitation.invitee_wallet_address 
                               ? `${invitation.invitee_wallet_address.slice(0, 6)}...${invitation.invitee_wallet_address.slice(-4)}`
                               : '待接受'
@@ -297,12 +315,15 @@ export function InviteSystem() {
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(invitation.created_at).toLocaleDateString()}
+                          {invitation.accepted_at 
+                            ? `接受时间: ${new Date(invitation.accepted_at).toLocaleDateString()}`
+                            : `创建时间: ${new Date(invitation.created_at).toLocaleDateString()}`
+                          }
                         </p>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-medium">
-                          +{invitation.reward_amount || 0} 奖励
+                          +{invitation.reward_amount || 0} ANGEL
                         </div>
                         <Badge 
                           variant={invitation.reward_claimed ? 'default' : 'outline'}

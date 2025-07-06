@@ -16,11 +16,21 @@ import { InteractiveMap } from "@/components/interactive-map"
 import { TokenLogo } from "@/components/token-logo"
 import { PageHeader } from "@/components/page-header"
 import { AngelBrand } from "@/components/angel-logo"
+import { AirdropClaim } from "@/components/airdrop-claim"
+import { InviteRewards } from "@/components/invite-rewards"
 import { useAuth } from "@/lib/auth-context"
+import { DatabaseService, type User } from "@/lib/database"
 
 export default function HomePage() {
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, updateUser } = useAuth()
   const [loading, setLoading] = useState(false)
+
+  const handleUserChange = (newUser: User | null) => {
+    if (newUser) {
+      updateUser(newUser)
+    }
+    console.log('User changed:', newUser)
+  }
 
   return (
     <MemeBackground variant="premium" overlay={true}>
@@ -30,6 +40,7 @@ export default function HomePage() {
         notifications={3}
         showBalance={true}
         angelBalance={user?.angel_balance || 0}
+        onUserChange={handleUserChange}
       />
       
       <div className="container mx-auto px-4 pb-4 max-w-md pt-20">
@@ -51,8 +62,20 @@ export default function HomePage() {
             </div>
           </MemeCard>
 
+          {/* 新用户空投 - 顶部位置 */}
+          <AirdropClaim onClaimed={() => {
+            // 刷新用户数据
+            if (user) {
+              DatabaseService.getUserByWalletAddress(user.wallet_address).then(updatedUser => {
+                if (updatedUser) {
+                  updateUser(updatedUser)
+                }
+              })
+            }
+          }} />
+
           {/* 预售按钮 - 醒目位置 */}
-          <Link href="/presale">
+          <a href="https://ido.angelcoin.app/" target="_blank" rel="noopener noreferrer">
             <MemeCard className="p-6 bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 text-white border-0 shadow-2xl rounded-3xl hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer hover-glow-primary animate-pulse">
               <div className="text-center">
                 <div className="text-4xl mb-3">🚀</div>
@@ -66,21 +89,10 @@ export default function HomePage() {
                 </div>
               </div>
             </MemeCard>
-          </Link>
+          </a>
 
-          {/* 钱包连接提示（如果未连接） */}
-          {!isAuthenticated && (
-            <MemeCard className="p-6 bg-white/95 backdrop-blur-sm border-0 shadow-lg rounded-3xl">
-              <div className="text-center">
-                <div className="text-3xl mb-3">👛</div>
-                <h3 className="text-lg font-bold text-gray-800 mb-2">连接钱包开始</h3>
-                <p className="text-gray-600 mb-4">
-                  连接您的钱包以查看余额、邀请朋友和获得奖励
-                </p>
-                <WalletConnect />
-              </div>
-            </MemeCard>
-          )}
+          {/* 增强的邀请奖励系统 - 预售后位置 */}
+          <InviteRewards />
 
           {/* 快速统计 - WEB3 风格 */}
           <div className="grid grid-cols-2 gap-4">
@@ -249,24 +261,7 @@ export default function HomePage() {
             </div>
           </MemeCard>
 
-          {/* 邀请好友 */}
-          <MemeCard className="p-6 bg-gradient-to-r from-pink-500/90 to-purple-500/90 text-white border-0 shadow-xl rounded-3xl">
-            <div className="text-center">
-              <div className="text-3xl mb-3">🎁</div>
-              <h3 className="text-lg font-bold mb-2">邀请好友赚奖励</h3>
-              <p className="text-pink-100 text-sm mb-4">
-                每邀请一位好友，您和好友都可获得 100 ANGEL 奖励
-              </p>
-              <Link href="/profile">
-                <MemeButton 
-                  variant="glass" 
-                  className="bg-white/20 hover:bg-white/30 text-white border-white/30"
-                >
-                  立即邀请
-                </MemeButton>
-              </Link>
-            </div>
-          </MemeCard>
+
 
         </div>
       </div>

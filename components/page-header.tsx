@@ -2,9 +2,8 @@
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Bell, Settings, ArrowLeft, Moon, Sun } from "lucide-react"
+import { Bell, Settings, ArrowLeft } from "lucide-react"
 import { WalletConnect } from "@/components/wallet-connect"
-import { useTheme } from "@/components/theme-provider"
 import { MenuButton } from "@/components/sidebar-nav"
 import { useNavigation } from "@/components/navigation-context"
 import { AngelLogo } from "@/components/angel-logo"
@@ -38,7 +37,6 @@ export function PageHeader({
   angelBalance = 0
 }: PageHeaderProps) {
   const router = useRouter()
-  const { isDark, toggleTheme } = useTheme()
   const { openSidebar } = useNavigation()
 
   const getHeaderStyles = () => {
@@ -91,24 +89,12 @@ export function PageHeader({
             </div>
           </div>
 
-          {/* 右侧：操作按钮区域 */}
+          {/* 右侧：钱包连接按钮 */}
           <div className="flex items-center gap-1 flex-shrink-0">
-            {/* 主题切换按钮 */}
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={toggleTheme}
-              className="w-10 h-10 rounded-xl text-muted-foreground hover:text-angel-primary hover:bg-secondary touch-feedback"
-            >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </Button>
-
-            {/* 钱包连接按钮 */}
-            {onUserChange && (
-              <div className="ml-1">
-                <WalletConnect onUserChange={onUserChange} />
-              </div>
-            )}
+            {/* 钱包连接按钮 - 始终显示 */}
+            <div className="ml-1">
+              <WalletConnect onUserChange={onUserChange} />
+            </div>
           </div>
         </div>
       </div>

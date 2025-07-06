@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { PageHeader } from "@/components/page-header"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -18,8 +18,8 @@ export default function NFTPage() {
   const [user, setUser] = useState<User | null>(null)
   const [selectedTab, setSelectedTab] = useState("marketplace")
 
-  // 真实NFT数据
-  const nftCollections = [
+  // NFT数据 - 在实际应用中应从 API 获取
+  const [nftCollections, setNftCollections] = useState([
     {
       id: 1,
       name: "天使守护者",
@@ -88,9 +88,9 @@ export default function NFTPage() {
         { name: "魔法", value: "90" }
       ]
     }
-  ]
+  ])
 
-  const userNFTs = [
+  const [userNFTs, setUserNFTs] = useState([
     {
       id: 1,
       name: "我的守护天使",
@@ -109,7 +109,27 @@ export default function NFTPage() {
       experience: 420,
       maxExperience: 600
     }
-  ]
+  ])
+
+  // 从 API 加载 NFT 数据
+  useEffect(() => {
+    const loadNFTData = async () => {
+      try {
+        // TODO: 实现从 API 获取 NFT 数据
+        // const collectionsResponse = await fetch('/api/nft/collections')
+        // const collectionsData = await collectionsResponse.json()
+        // setNftCollections(collectionsData)
+        
+        // const userNFTsResponse = await fetch('/api/nft/user')
+        // const userNFTsData = await userNFTsResponse.json()
+        // setUserNFTs(userNFTsData)
+      } catch (error) {
+        console.error('加载 NFT 数据失败:', error)
+      }
+    }
+    
+    loadNFTData()
+  }, [])
 
   const getRarityTextColor = (rarity: string) => {
     switch(rarity) {

@@ -371,7 +371,7 @@ export default function AdminPage() {
                             <span className="font-medium">{invitee?.username || '未知用户'}</span>
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            推荐码: {invitation.referral_code}
+                            邀请人钱包: {invitation.inviter_wallet_address?.slice(0, 6)}...{invitation.inviter_wallet_address?.slice(-4)}
                           </p>
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <span>状态: {invitation.status}</span>

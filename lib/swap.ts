@@ -40,103 +40,95 @@ export class SwapService {
     return SwapService.instance
   }
 
-  private initTokens() {
+  // 异步初始化方法
+  static async getInstanceAsync(): Promise<SwapService> {
+    if (!SwapService.instance) {
+      SwapService.instance = new SwapService()
+      await SwapService.instance.initTokens()
+    }
+    return SwapService.instance
+  }
+
+  private async initTokens() {
+    // 从环境变量或配置文件获取代币地址
+    const tokenAddresses = {
+      BNB: process.env.NEXT_PUBLIC_BNB_ADDRESS || "0x0000000000000000000000000000000000000000",
+      ANGEL: process.env.NEXT_PUBLIC_ANGEL_TOKEN_ADDRESS || "",
+      USDT: process.env.NEXT_PUBLIC_USDT_ADDRESS || "0x55d398326f99059fF775485246999027B3197955",
+      BUSD: process.env.NEXT_PUBLIC_BUSD_ADDRESS || "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+      USDC: process.env.NEXT_PUBLIC_USDC_ADDRESS || "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+      BTCB: process.env.NEXT_PUBLIC_BTCB_ADDRESS || "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
+      ETH: process.env.NEXT_PUBLIC_ETH_ADDRESS || "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
+    };
+
     this.tokens = [
       {
-        address: "0x0000000000000000000000000000000000000000",
+        address: tokenAddresses.BNB,
         symbol: "BNB",
         name: "BNB",
         decimals: 18,
         logoURI: "🟡",
-        balance: "2.847",
-        price: 298.45,
+        balance: "0", // 余额需要从钱包或API获取
+        price: 0, // 价格需要从API获取
       },
       {
-        address: "0x1234567890123456789012345678901234567890",
+        address: tokenAddresses.ANGEL,
         symbol: "ANGEL",
         name: "Angel Token",
         decimals: 18,
         logoURI: "👼",
-        balance: "152847.52",
-        price: 0.0847,
+        balance: "0",
+        price: 0,
       },
       {
-        address: "0x55d398326f99059fF775485246999027B3197955",
+        address: tokenAddresses.USDT,
         symbol: "USDT",
         name: "Tether USD",
         decimals: 18,
         logoURI: "💚",
-        balance: "1247.89",
-        price: 1.0,
+        balance: "0",
+        price: 0,
       },
       {
-        address: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+        address: tokenAddresses.BUSD,
         symbol: "BUSD",
         name: "Binance USD",
         decimals: 18,
         logoURI: "💛",
-        balance: "847.23",
-        price: 1.0,
+        balance: "0",
+        price: 0,
       },
       {
-        address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+        address: tokenAddresses.USDC,
         symbol: "USDC",
         name: "USD Coin",
         decimals: 18,
         logoURI: "🔵",
-        balance: "523.67",
-        price: 1.0,
+        balance: "0",
+        price: 0,
       },
       {
-        address: "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
+        address: tokenAddresses.BTCB,
         symbol: "BTCB",
         name: "Bitcoin BEP20",
         decimals: 18,
         logoURI: "🟠",
-        balance: "0.0234",
-        price: 43250.0,
+        balance: "0",
+        price: 0,
       },
       {
-        address: "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
+        address: tokenAddresses.ETH,
         symbol: "ETH",
         name: "Ethereum Token",
         decimals: 18,
         logoURI: "🔷",
-        balance: "0.847",
-        price: 2650.0,
+        balance: "0",
+        price: 0,
       },
-    ]
+    ];
 
-    // 初始化流动性池
-    this.pools = [
-      {
-        token0: this.tokens[0], // BNB
-        token1: this.tokens[1], // ANGEL
-        reserve0: "1000000",
-        reserve1: "35000000",
-        totalSupply: "5916079",
-        fee: 0.25,
-        apy: 45.2,
-      },
-      {
-        token0: this.tokens[1], // ANGEL
-        token1: this.tokens[2], // USDT
-        reserve0: "25000000",
-        reserve1: "2117500",
-        totalSupply: "7280109",
-        fee: 0.25,
-        apy: 38.7,
-      },
-      {
-        token0: this.tokens[0], // BNB
-        token1: this.tokens[2], // USDT
-        reserve0: "500000",
-        reserve1: "149225000",
-        totalSupply: "8660254",
-        fee: 0.25,
-        apy: 12.5,
-      },
-    ]
+    // 初始化空的流动性池，需要从区块链获取实际数据
+    this.pools = [];
   }
 
   getTokens(): Token[] {
@@ -149,6 +141,43 @@ export class SwapService {
 
   getPools(): Pool[] {
     return this.pools
+  }
+
+  // 更新代币余额
+  updateTokenBalance(address: string, balance: string): void {
+    const token = this.tokens.find(t => t.address.toLowerCase() === address.toLowerCase())
+    if (token) {
+      token.balance = balance
+    }
+  }
+
+  // 更新代币价格
+  updateTokenPrice(address: string, price: number): void {
+    const token = this.tokens.find(t => t.address.toLowerCase() === address.toLowerCase())
+    if (token) {
+      token.price = price
+    }
+  }
+
+  // 批量更新代币价格
+  updateTokenPrices(prices: Record<string, number>): void {
+    Object.entries(prices).forEach(([address, price]) => {
+      this.updateTokenPrice(address, price)
+    })
+  }
+
+  // 添加流动性池
+  addPool(pool: Pool): void {
+    const existingIndex = this.pools.findIndex(p => 
+      (p.token0.address === pool.token0.address && p.token1.address === pool.token1.address) ||
+      (p.token0.address === pool.token1.address && p.token1.address === pool.token0.address)
+    )
+    
+    if (existingIndex >= 0) {
+      this.pools[existingIndex] = pool
+    } else {
+      this.pools.push(pool)
+    }
   }
 
   getPool(token0: string, token1: string): Pool | undefined {
