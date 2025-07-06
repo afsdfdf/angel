@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Wallet, LogOut, Copy, Gift, Users, Share2 } from "lucide-react"
+import { Wallet, LogOut, Copy, Gift, Users, Share2, CheckCircle } from "lucide-react"
 import { DatabaseService, type User, REWARD_CONFIG } from "@/lib/database"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -144,23 +144,23 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
     try {
       await connectWalletGlobal()
       
-      // 如果钱包连接成功，自动登录
-      if (account) {
-        await loginWithWallet(account)
-      }
+      // 暂时禁用自动登录，让用户手动触发
+      // if (account) {
+      //   await loginWithWallet(account)
+      // }
     } catch (error: any) {
       console.error("连接钱包失败:", error)
       setErrorGlobal(error.message || "连接失败")
     }
   }
 
-  // 监听钱包连接状态变化，自动登录
-  useEffect(() => {
-    if (isConnected && account && !user && !isLoggingIn && !loginAttempts.has(account)) {
-      console.log("🔄 钱包已连接，自动登录用户:", account)
-      loginWithWallet(account)
-    }
-  }, [isConnected, account, user, isLoggingIn, loginAttempts])
+  // 暂时禁用自动登录，避免重复请求问题
+  // useEffect(() => {
+  //   if (isConnected && account && !user && !isLoggingIn && !loginAttempts.has(account)) {
+  //     console.log("🔄 钱包已连接，自动登录用户:", account)
+  //     loginWithWallet(account)
+  //   }
+  // }, [isConnected, account, user, isLoggingIn, loginAttempts])
 
   // 清理函数
   useEffect(() => {
@@ -325,7 +325,32 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
     )
   }
 
-  // 已连接状态
+  // 钱包已连接但用户未登录状态
+  if (isConnected && account && !user) {
+    return (
+      <div className="relative">
+        {error && (
+          <div className="absolute -top-12 right-0 bg-red-500/90 border border-red-500 rounded-lg p-2 min-w-48 z-50">
+            <p className="text-red-100 text-xs">{error}</p>
+          </div>
+        )}
+        <Button
+          onClick={() => loginWithWallet(account)}
+          disabled={isLoggingIn || isSigning}
+          className="bg-gradient-to-r from-angel-accent to-angel-secondary hover:opacity-90 text-white font-semibold px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 shadow-angel-accent flex items-center gap-2 touch-feedback"
+        >
+          <CheckCircle className="w-4 h-4" />
+          <span className="hidden sm:inline">
+            {isSigning ? "签名中..." : 
+             isLoggingIn ? "登录中..." : 
+             "登录账户"}
+          </span>
+        </Button>
+      </div>
+    )
+  }
+
+  // 已连接且已登录状态
   return (
     <div className="relative">
       {/* 钱包连接按钮 */}
