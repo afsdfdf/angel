@@ -17,6 +17,9 @@ interface WalletConnectProps {
 
 // 简化的钱包连接服务
 class SimpleWalletService {
+  private isConnecting = false
+  private isSigning = false
+
   // 检查是否安装了钱包
   isWalletInstalled(): boolean {
     return typeof window !== "undefined" && window.ethereum !== undefined
@@ -24,6 +27,13 @@ class SimpleWalletService {
 
   // 连接钱包
   async connectWallet(): Promise<{ success: boolean; account?: string; error?: string }> {
+    // 防止重复连接
+    if (this.isConnecting) {
+      return { success: false, error: "连接请求进行中，请稍候" }
+    }
+
+    this.isConnecting = true
+
     try {
       if (!this.isWalletInstalled()) {
         return { success: false, error: "请安装 MetaMask 或其他以太坊钱包" }
@@ -42,11 +52,20 @@ class SimpleWalletService {
     } catch (error: any) {
       console.error("连接钱包失败:", error)
       return { success: false, error: error.message || "连接钱包失败" }
+    } finally {
+      this.isConnecting = false
     }
   }
 
   // 签名消息
   async signMessage(account: string, message: string): Promise<{ success: boolean; signature?: string; error?: string }> {
+    // 防止重复签名
+    if (this.isSigning) {
+      return { success: false, error: "签名请求进行中，请稍候" }
+    }
+
+    this.isSigning = true
+
     try {
       if (!this.isWalletInstalled()) {
         return { success: false, error: "钱包未安装" }
@@ -61,6 +80,8 @@ class SimpleWalletService {
     } catch (error: any) {
       console.error("签名失败:", error)
       return { success: false, error: error.message || "签名失败" }
+    } finally {
+      this.isSigning = false
     }
   }
 
@@ -92,6 +113,8 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
     setError: setErrorGlobal 
   } = useWallet()
   const [showDropdown, setShowDropdown] = useState(false)
+  const [isSigning, setIsSigning] = useState(false)
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
   const router = useRouter()
 
   const walletService = new SimpleWalletService()
@@ -112,13 +135,22 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
 
   // 监听钱包连接状态变化，自动登录
   useEffect(() => {
-    if (isConnected && account && !user) {
+    if (isConnected && account && !user && !isLoggingIn) {
       console.log("🔄 钱包已连接，自动登录用户:", account)
       loginWithWallet(account)
     }
-  }, [isConnected, account, user])
+  }, [isConnected, account, user, isLoggingIn])
 
   const loginWithWallet = async (walletAddress: string) => {
+    // 防止重复登录
+    if (isLoggingIn || isSigning) {
+      console.log("🔄 登录或签名进行中，跳过重复请求")
+      return
+    }
+
+    setIsLoggingIn(true)
+    setIsSigning(true)
+
     try {
       // 生成签名消息
       const message = `欢迎来到Angel Crypto App！\n\n请签名以验证您的身份。\n\n钱包地址: ${walletAddress}\n时间戳: ${Date.now()}`
@@ -130,6 +162,8 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
         setErrorGlobal(signResult.error || "签名失败")
         return
       }
+
+      setIsSigning(false) // 签名完成
 
       try {
         // 检查是否为新用户
@@ -170,6 +204,9 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
     } catch (error: any) {
       console.error("登录失败:", error)
       setErrorGlobal(error.message || "登录失败")
+    } finally {
+      setIsLoggingIn(false)
+      setIsSigning(false)
     }
   }
 
@@ -231,11 +268,16 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
         )}
         <Button
           onClick={connectWallet}
-          disabled={isLoading}
+          disabled={isLoading || isLoggingIn || isSigning}
           className="bg-gradient-to-r from-angel-primary to-angel-secondary hover:opacity-90 text-white font-semibold px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 shadow-angel-primary flex items-center gap-2 touch-feedback"
         >
           <Wallet className="w-4 h-4" />
-          <span className="hidden sm:inline">{isLoading ? "连接中..." : "连接钱包"}</span>
+          <span className="hidden sm:inline">
+            {isLoading ? "连接中..." : 
+             isSigning ? "签名中..." : 
+             isLoggingIn ? "登录中..." : 
+             "连接钱包"}
+          </span>
         </Button>
       </div>
     )
