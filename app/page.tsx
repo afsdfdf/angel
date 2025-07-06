@@ -22,6 +22,13 @@ import { useAuth } from "@/lib/auth-context"
 import { DatabaseService, type User } from "@/lib/database"
 
 export default function HomePage() {
+  // 调试：检查环境变量
+  useEffect(() => {
+    console.log('🔍 客户端环境变量检查:');
+    console.log('NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log('NEXT_PUBLIC_SUPABASE_ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 30) + '...');
+  }, []);
+
   const { user, isAuthenticated, updateUser } = useAuth()
   const [loading, setLoading] = useState(false)
 
