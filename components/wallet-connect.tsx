@@ -5,13 +5,21 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Wallet, LogOut, Copy, Gift, Users, Share2, CheckCircle } from "lucide-react"
-import { DatabaseService, type User, REWARD_CONFIG } from "@/lib/database"
+import { DatabaseClientApi } from "@/lib/database-client-api"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useWallet } from "@/lib/wallet-context"
 
+// Define reward config directly in this client component to avoid server imports
+const REWARD_CONFIG = {
+  WELCOME_BONUS: 10000,
+  REFERRAL_L1: 3000,
+  REFERRAL_L2: 1500,
+  REFERRAL_L3: 500
+};
+
 interface WalletConnectProps {
-  onUserChange?: (user: User | null) => void
+  onUserChange?: (user: any | null) => void
   inviterWallet?: string // 邀请人钱包地址
 }
 
@@ -130,7 +138,8 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
     error, 
     connectWallet: connectWalletGlobal, 
     disconnectWallet: disconnectWalletGlobal,
-    setError: setErrorGlobal 
+    setError: setErrorGlobal,
+    setIsLoading: setIsLoadingGlobal
   } = useWallet()
   const [showDropdown, setShowDropdown] = useState(false)
   const [isSigning, setIsSigning] = useState(false)
@@ -142,25 +151,89 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
 
   const connectWallet = async () => {
     try {
-      await connectWalletGlobal()
+      // 防止重复点击
+      if (isLoading || isLoggingIn || isSigning) {
+        console.log("请求正在处理中，请稍候...")
+        return;
+      }
       
-      // 暂时禁用自动登录，让用户手动触发
-      // if (account) {
-      //   await loginWithWallet(account)
-      // }
+      setIsLoadingGlobal(true); // 使用全局的setIsLoading
+      
+      // 清除可能的错误状态
+      setErrorGlobal(null);
+
+      // 请求连接钱包
+      console.log("🔄 请求连接钱包...");
+      await connectWalletGlobal();
+      
+      // 连接成功后显示成功状态，但不自动登录
+      setTimeout(() => {
+        setIsLoadingGlobal(false); // 使用全局的setIsLoading
+      }, 1000);
+      
+      // 不要在这里自动触发登录
+      
     } catch (error: any) {
-      console.error("连接钱包失败:", error)
-      setErrorGlobal(error.message || "连接失败")
+      console.error("连接钱包失败:", error);
+      setErrorGlobal(error.message || "连接失败");
+      setIsLoadingGlobal(false); // 使用全局的setIsLoading
     }
   }
 
-  // 暂时禁用自动登录，避免重复请求问题
+  // 移除自动登录逻辑
   // useEffect(() => {
-  //   if (isConnected && account && !user && !isLoggingIn && !loginAttempts.has(account)) {
-  //     console.log("🔄 钱包已连接，自动登录用户:", account)
-  //     loginWithWallet(account)
+  //   const canAutoLogin = isConnected && 
+  //                        account && 
+  //                        !user && 
+  //                        !isLoggingIn && 
+  //                        !isSigning && 
+  //                        !loginAttempts.has(account);
+  //   
+  //   if (canAutoLogin) {
+  //     const timer = setTimeout(() => {
+  //       console.log("🔄 钱包已连接，尝试自动登录用户:", account);
+  //       loginWithWallet(account);
+  //     }, 1000);
+  //     
+  //     return () => clearTimeout(timer);
   //   }
-  // }, [isConnected, account, user, isLoggingIn, loginAttempts])
+  // }, [isConnected, account, user, isLoggingIn, isSigning, loginAttempts]);
+
+  // 添加错误自动关闭的效果
+  useEffect(() => {
+    // 如果有错误，设置自动关闭计时器
+    if (error) {
+      const timer = setTimeout(() => {
+        setErrorGlobal(null);
+      }, 15000); // 15秒后自动关闭错误
+
+      return () => clearTimeout(timer);
+    }
+  }, [error, setErrorGlobal]);
+
+  // 格式化错误信息，增加更友好的提示
+  const getFormattedErrorMessage = (errorMsg: string | null) => {
+    if (!errorMsg) return null;
+    
+    // MetaMask 常见错误
+    if (errorMsg.includes('pending request')) {
+      return '钱包有未完成的请求，请打开钱包扩展程序并检查或拒绝待处理的请求。';
+    }
+    
+    if (errorMsg.includes('User rejected')) {
+      return '您拒绝了签名请求，请点击重试并在钱包中确认签名。';
+    }
+    
+    if (errorMsg.includes('already pending')) {
+      return '钱包有待处理的请求，请在钱包扩展中完成或拒绝它。';
+    }
+    
+    if (errorMsg.includes('Request of type')) {
+      return '钱包有待处理的请求，请检查钱包扩展并处理它。';
+    }
+    
+    return errorMsg;
+  };
 
   // 清理函数
   useEffect(() => {
@@ -183,74 +256,93 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
     setLoginAttempts(prev => new Set(prev).add(walletAddress))
     setIsLoggingIn(true)
     setIsSigning(true)
+    setErrorGlobal(null) // 清除之前的错误
 
     try {
-      // 添加延迟，确保钱包扩展程序准备好
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // 添加较长延迟，确保钱包扩展程序准备好
+      await new Promise(resolve => setTimeout(resolve, 800))
 
-      // 生成签名消息
-      const message = `欢迎来到Angel Crypto App！\n\n请签名以验证您的身份。\n\n钱包地址: ${walletAddress}\n时间戳: ${Date.now()}`
+      // 生成签名消息 - 添加随机数避免重复
+      const timestamp = Date.now()
+      const randomId = Math.floor(Math.random() * 1000000)
+      const message = `欢迎来到Angel Crypto App！\n\n请签名以验证您的身份。\n\n钱包地址: ${walletAddress}\n时间戳: ${timestamp}\n随机码: ${randomId}`
+      
+      console.log("🔄 请求用户签名...")
       
       // 请求用户签名
       const signResult = await walletService.signMessage(walletAddress, message)
       
       if (!signResult.success) {
+        console.log("❌ 签名失败:", signResult.error)
         setErrorGlobal(signResult.error || "签名失败")
         return
       }
 
+      console.log("✅ 签名成功，继续处理...")
       setIsSigning(false) // 签名完成
 
       try {
         // 检查是否为新用户
-        const isNewUser = await DatabaseService.isNewUser(walletAddress)
+        console.log("🔄 检查用户是否存在...")
+        const userExists = await DatabaseClientApi.isUserExists(walletAddress)
+        const isNewUser = !userExists
         
         if (isNewUser) {
+          console.log("🆕 检测到新用户，创建账户...")
           // 新用户，处理邀请注册
           let success = false
           if (inviterWallet) {
             console.log("🔄 处理邀请注册:", walletAddress, inviterWallet)
-            success = await DatabaseService.processInviteRegistration(walletAddress, inviterWallet)
-            console.log("邀请注册结果:", success)
+            success = await DatabaseClientApi.processInviteRegistration(walletAddress, inviterWallet)
+            console.log("邀请注册结果:", success ? "成功" : "失败")
           } else {
             // 没有邀请人，直接创建用户
-            const newUser = await DatabaseService.createUser({
+            console.log("🔄 创建新用户:", walletAddress)
+            const newUser = await DatabaseClientApi.createUser({
               wallet_address: walletAddress.toLowerCase()
             })
             success = !!newUser
+            console.log("用户创建结果:", success ? "成功" : "失败")
           }
           
           if (!success) {
-            console.warn("用户创建失败，但钱包已连接")
+            console.warn("⚠️ 用户创建失败，但钱包已连接")
             // 不设置错误，允许用户继续使用应用
           }
+        } else {
+          console.log("👤 用户已存在，获取信息...")
         }
 
         // 获取用户信息
-        const userData = await DatabaseService.getUserByWalletAddress(walletAddress)
+        console.log("🔄 获取用户信息...")
+        const userData = await DatabaseClientApi.getUserByWalletAddress(walletAddress)
         if (userData) {
+          console.log("✅ 获取用户信息成功，完成登录")
           login(userData)
           onUserChange?.(userData)
         } else {
-          console.warn("未找到用户数据，但钱包已连接")
+          console.warn("⚠️ 未找到用户数据，但钱包已连接")
           // 不设置错误，允许用户继续使用应用
         }
       } catch (dbError) {
-        console.warn("数据库操作失败，但钱包已连接:", dbError)
-        // 即使数据库不可用，也不阻止钱包连接
+        console.error("❌ 数据库操作失败:", dbError)
+        setErrorGlobal("数据库访问失败，请稍后再试")
       }
     } catch (error: any) {
-      console.error("登录失败:", error)
+      console.error("❌ 登录失败:", error)
       setErrorGlobal(error.message || "登录失败")
     } finally {
       setIsLoggingIn(false)
       setIsSigning(false)
-      // 清除登录尝试记录
-      setLoginAttempts(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(walletAddress)
-        return newSet
-      })
+      
+      // 延迟清除登录尝试记录，给用户一些时间查看错误信息
+      setTimeout(() => {
+        setLoginAttempts(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(walletAddress)
+          return newSet
+        })
+      }, 2000)
     }
   }
 
@@ -271,7 +363,7 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
     if (!user) return
     
     try {
-      const inviteLink = await DatabaseService.generateInviteLink(user.wallet_address)
+      const inviteLink = await DatabaseClientApi.generateInviteLink(user.wallet_address)
       if (inviteLink) {
         navigator.clipboard.writeText(inviteLink)
         // 可以添加一个提示消息
@@ -285,7 +377,7 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
     if (!user) return
     
     try {
-      const inviteLink = await DatabaseService.generateInviteLink(user.wallet_address)
+      const inviteLink = await DatabaseClientApi.generateInviteLink(user.wallet_address)
       if (inviteLink && navigator.share) {
         await navigator.share({
           title: '加入天使加密',
@@ -307,7 +399,30 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
       <div className="relative">
         {error && (
           <div className="absolute -top-12 right-0 bg-red-500/90 border border-red-500 rounded-lg p-2 min-w-48 z-50">
-            <p className="text-red-100 text-xs">{error}</p>
+            <div className="flex justify-between items-start">
+              <p className="text-red-100 text-xs">{getFormattedErrorMessage(error)}</p>
+              <button 
+                onClick={() => setErrorGlobal(null)} 
+                className="text-white/70 hover:text-white ml-2 text-xs"
+              >
+                ×
+              </button>
+            </div>
+            <div className="mt-2 text-center">
+              <button 
+                onClick={() => {
+                  setErrorGlobal(null);
+                  // 重置所有状态
+                  setIsLoadingGlobal(false);
+                  setLoginAttempts(new Set());
+                  setIsLoggingIn(false);
+                  setIsSigning(false);
+                }}
+                className="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded-md"
+              >
+                重试
+              </button>
+            </div>
           </div>
         )}
         <Button
@@ -333,7 +448,33 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
       <div className="relative">
         {error && (
           <div className="absolute -top-12 right-0 bg-red-500/90 border border-red-500 rounded-lg p-2 min-w-48 z-50">
-            <p className="text-red-100 text-xs">{error}</p>
+            <div className="flex justify-between items-start">
+              <p className="text-red-100 text-xs">{getFormattedErrorMessage(error)}</p>
+              <button 
+                onClick={() => setErrorGlobal(null)} 
+                className="text-white/70 hover:text-white ml-2 text-xs"
+              >
+                ×
+              </button>
+            </div>
+            <div className="mt-2 text-center">
+              <button 
+                onClick={() => {
+                  setErrorGlobal(null);
+                  // 如果是签名错误，则清除登录尝试记录，允许重试
+                  if (account) {
+                    setLoginAttempts(prev => {
+                      const newSet = new Set(prev);
+                      newSet.delete(account);
+                      return newSet;
+                    });
+                  }
+                }}
+                className="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded-md"
+              >
+                重试
+              </button>
+            </div>
           </div>
         )}
         <Button
@@ -345,7 +486,7 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
           <span className="hidden sm:inline">
             {isSigning ? "签名中..." : 
              isLoggingIn ? "登录中..." : 
-             "登录账户"}
+             "点击登录"}
           </span>
         </Button>
       </div>

@@ -23,5 +23,25 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "app/mongodb-test",
+    "app/test-mongodb", 
+    "app/test-db-supabase-rpc",
+    "app/user-test",
+    "app/database-test",
+    "app/test-db-simple",
+    "app/test-db-diagnostic",
+    "app/test-invite-simple",
+    "app/test-invite-rewards",
+    "app/test-db",
+    "app/test-env",
+    "app/test-wallet",
+    "app/test-login",
+    "app/test-invite-new",
+    "app/test-header",
+    "app/test-invite",
+    "app/test",
+    "app/demo-layout"
+  ]
 }

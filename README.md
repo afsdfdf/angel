@@ -16,24 +16,37 @@
    - 集成 Wagmi 和 WalletConnect
    - 支持 MetaMask、WalletConnect 等主流钱包
    - 钱包连接状态管理
+   - 连接钱包即注册并获得奖励
+   - 优化的钱包连接体验与自动重试机制
 
 3. **认证系统架构**
    - 完整的认证上下文 (AuthContext)
    - 用户会话管理
    - 钱包签名认证
    - 邀请系统框架
+   - 防重复请求机制
 
 4. **数据库集成**
-   - Supabase 第三方API数据库
-   - 用户、邀请、会话表结构
+   - MongoDB Atlas 云数据库
+   - 用户、邀请、奖励记录集合
    - 数据库服务层
+   - 高效的数据查询与缓存机制
+
+5. **邀请奖励系统**
+   - 连接钱包注册获得 10,000 ANGEL 代币
+   - 一级邀请奖励 3,000 ANGEL 代币
+   - 二级邀请奖励 1,500 ANGEL 代币
+   - 三级邀请奖励 500 ANGEL 代币
+   - 多级推荐跟踪与奖励自动发放
+   - 优化的奖励计算和分配机制
 
 ### 🔧 当前开发状态
 
 - **开发服务器**: 运行在 http://localhost:3001
 - **构建状态**: 基本功能正常，需要配置环境变量
 - **UI组件**: 完整的玻璃效果卡片系统
-- **认证系统**: 代码完成，需要数据库配置
+- **认证系统**: 代码完成，需要MongoDB数据库配置
+- **优化状态**: 已优化钱包连接体验，减少重复签名问题
 
 ## 📋 快速开始
 
@@ -47,10 +60,9 @@ node setup-env.js
 编辑 `.env.local` 文件，填入以下配置：
 
 ```env
-# 数据库配置 (使用Supabase作为第三方API数据库)
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+# MongoDB数据库配置
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/angel-crypto?retryWrites=true&w=majority
+MONGODB_DB_NAME=angel-crypto
 
 # 钱包连接配置
 NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=your_wallet_connect_project_id
@@ -66,15 +78,24 @@ NEXT_PUBLIC_APP_URL=http://localhost:3001
 
 ### 2. 数据库设置
 
-1. 访问 [Supabase](https://supabase.com/) 创建新项目
-2. 获取项目的 URL 和 API 密钥
-3. 在 Supabase SQL 编辑器中运行 `scripts/init-database.sql` 脚本
+1. 访问 [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) 创建新账户或登录
+2. 创建一个新的集群（可使用免费层级）
+3. 设置数据库用户和网络访问权限
+4. 获取连接字符串
+5. 运行初始化脚本：
+   ```bash
+   npm run init-mongodb
+   ```
+
+详细的MongoDB设置指南请参考 [MONGODB_SETUP_GUIDE.md](./MONGODB_SETUP_GUIDE.md)
 
 ### 3. WalletConnect 配置
 
 1. 访问 [WalletConnect Cloud](https://cloud.walletconnect.com/)
 2. 创建新项目并获取 Project ID
 3. 配置项目元数据和域名
+
+详细的钱包连接配置指南请参考 [WALLET_CONNECT_GUIDE.md](./WALLET_CONNECT_GUIDE.md)
 
 ### 4. 启动开发服务器
 
@@ -84,41 +105,82 @@ npm run dev
 
 访问 http://localhost:3001 查看应用
 
-## 🎯 测试页面
+## 🎯 主要功能页面
 
 ### 主页
 - 路径: `/`
 - 功能: 展示ANGEL代币信息、功能导航、用户资产
 
-### 认证测试页面
-- 路径: `/auth/simple`
-- 功能: 测试钱包连接和认证功能
+### 邀请页面
+- 路径: `/invite/[wallet_address]`
+- 功能: 通过邀请链接注册并获得奖励
 
-### 认证页面
-- 路径: `/auth`
-- 功能: 完整的认证和邀请系统界面
+### 个人资料页面
+- 路径: `/profile`
+- 功能: 查看个人资料、邀请记录和奖励历史
+
+### NFT市场
+- 路径: `/nft`
+- 功能: 查看和交易NFT卡牌
+
+### 代币兑换
+- 路径: `/swap`
+- 功能: 代币兑换交易功能
+
+## 🔑 钱包连接 = 注册
+
+Angel Crypto App采用了简化的用户注册流程：
+
+1. **连接钱包即完成注册** - 用户只需连接钱包，无需填写任何表单
+2. **自动获得奖励** - 新用户连接钱包后自动获得10,000 ANGEL代币
+3. **邀请奖励自动发放** - 通过邀请链接注册时，邀请人自动获得奖励
+4. **多级奖励系统** - 支持三级邀请奖励，全部自动计算和发放
+
+这种设计极大简化了用户体验，让用户能够立即参与生态系统。
+
+### 钱包连接优化
+
+为提升用户体验，我们对钱包连接流程进行了以下优化：
+
+1. **防重复请求机制** - 避免用户重复签名
+2. **自动重试** - 连接失败时自动尝试重新连接
+3. **错误处理改进** - 更友好的错误提示
+4. **延迟处理** - 确保钱包扩展有足够时间响应
+5. **分离连接与登录步骤** - 避免连续请求导致的问题
 
 ## 🏗️ 项目结构
 
 ```
 angel-crypto-app/
 ├── app/                          # Next.js 应用页面
+│   ├── admin/                    # 管理页面
 │   ├── auth/                     # 认证相关页面
+│   ├── api/                      # API路由
+│   │   ├── invites/              # 邀请相关API
+│   │   ├── rewards/              # 奖励相关API
+│   │   └── users/                # 用户相关API
+│   ├── invite/                   # 邀请页面
+│   ├── profile/                  # 个人资料页面
+│   ├── nft/                      # NFT市场
+│   ├── swap/                     # 代币兑换
 │   ├── globals.css              # 全局样式
 │   ├── layout.tsx               # 根布局
 │   └── page.tsx                 # 主页
 ├── components/                   # React 组件
+│   ├── auth/                    # 认证相关组件
 │   ├── ui/                      # 基础UI组件
+│   ├── invite-rewards.tsx       # 邀请奖励组件
 │   ├── meme-background.tsx      # 玻璃效果背景组件
-│   ├── bottom-nav.tsx           # 底部导航
+│   ├── wallet-connect.tsx       # 钱包连接组件
 │   └── page-header.tsx          # 页面头部
 ├── lib/                         # 工具库
 │   ├── auth-context.tsx         # 认证上下文
-│   ├── database.ts              # 数据库服务
-│   ├── wagmi.ts                 # 钱包配置
+│   ├── database-mongodb.ts      # MongoDB数据库服务
+│   ├── database-client-api.ts   # 客户端API封装
+│   ├── mongodb-config.ts        # MongoDB配置
 │   └── config.ts                # 应用配置
 ├── scripts/                     # 脚本文件
-│   └── init-database.sql        # 数据库初始化脚本
+│   └── mongodb-init.js          # MongoDB初始化脚本
 ├── styles/                      # 样式文件
 ├── public/                      # 静态资源
 └── docs/                        # 文档
@@ -154,27 +216,38 @@ angel-crypto-app/
 ### 技术实现
 - 使用 Wagmi 进行钱包连接
 - 自定义认证上下文
-- Supabase 数据库存储
+- MongoDB Atlas 数据库存储
 - 本地存储会话管理
 
 ## 📊 数据库设计
 
-### 用户表 (users)
+### 用户集合 (users)
 - 钱包地址
-- 推荐码
+- 用户名和头像
 - 推荐关系
-- 用户状态
+- 代币余额
+- 邀请数量
+- 用户级别和状态
 
-### 邀请表 (invitations)
-- 邀请者信息
-- 被邀请者信息
+### 邀请集合 (invitations)
+- 邀请人ID和钱包地址
+- 被邀请人ID和钱包地址
 - 邀请状态
-- 奖励信息
+- 奖励金额
+- 创建和接受时间
 
-### 会话表 (user_sessions)
+### 奖励记录集合 (reward_records)
 - 用户ID
-- 会话令牌
-- 过期时间
+- 奖励类型（欢迎、一级邀请、二级邀请、三级邀请）
+- 奖励金额（欢迎10000、一级3000、二级1500、三级500）
+- 相关用户和邀请ID
+- 奖励状态
+
+### 奖励机制实现
+- 新用户注册自动发放欢迎奖励
+- 邀请成功自动发放多级邀请奖励
+- 奖励记录完整跟踪
+- 实时更新用户代币余额
 
 ## 🚀 部署指南
 
@@ -205,61 +278,23 @@ npm start
 2. 使用 TypeScript 定义接口
 3. 添加适当的样式和动画
 
-### 数据库操作
-使用 `DatabaseService` 类进行数据库操作：
-```typescript
-import { DatabaseService } from '@/lib/database';
+## 🔧 故障排除
 
-// 创建用户
-const user = await DatabaseService.createUser(userData);
+如果遇到问题，请参考以下指南：
 
-// 获取用户
-const user = await DatabaseService.getUserByWalletAddress(address);
-```
+- [钱包连接问题](./WALLET_CONNECT_TROUBLESHOOTING.md)
+- [数据库连接问题](./DATABASE_TROUBLESHOOTING.md)
+- [邀请奖励问题](./INVITE_REWARDS_TROUBLESHOOTING.md)
+- [用户创建修复](./FIX_USER_CREATION_GUIDE.md)
 
-## 📚 相关文档
+## 📚 文档
 
-- [AUTH_SETUP_GUIDE.md](./AUTH_SETUP_GUIDE.md) - 认证系统设置指南
-- [BACKGROUND_GUIDE.md](./BACKGROUND_GUIDE.md) - 背景设计指南
-- [CEO_STRATEGIC_OPTIMIZATION_PLAN.md](./CEO_STRATEGIC_OPTIMIZATION_PLAN.md) - 战略优化计划
+详细文档请参考：
 
-## 🤝 贡献指南
-
-1. Fork 项目
-2. 创建功能分支
-3. 提交更改
-4. 推送到分支
-5. 创建 Pull Request
-
-## 📄 许可证
-
-MIT License
-
-## 🆘 故障排除
-
-### 常见问题
-
-1. **钱包连接失败**
-   - 检查 WalletConnect Project ID 是否正确
-   - 确认钱包应用已安装并可用
-
-2. **数据库连接错误**
-   - 验证 Supabase 配置
-   - 检查网络连接
-   - 确认数据库表已创建
-
-3. **构建错误**
-   - 检查环境变量配置
-   - 确认所有依赖已安装
-   - 查看控制台错误信息
-
-### 调试技巧
-
-1. 开启浏览器开发者工具查看控制台错误
-2. 检查网络请求状态
-3. 验证环境变量配置
-4. 查看 Supabase 日志
-
-## 📞 支持
-
-如有问题，请查看相关文档或创建 Issue。 
+- [MongoDB设置指南](./MONGODB_SETUP_GUIDE.md)
+- [钱包连接指南](./WALLET_CONNECT_GUIDE.md)
+- [邀请系统使用指南](./INVITE_SYSTEM_USAGE.md)
+- [奖励系统说明](./README-REWARD-SYSTEM.md)
+- [NFT系统说明](./README-NFT-SYSTEM.md)
+- [数据库指南](./README-database.md)
+- [快速入门](./QUICK_START.md) 

@@ -23,6 +23,9 @@ interface WalletProviderProps {
 
 // 简化的钱包连接服务
 class SimpleWalletService {
+  private isConnecting = false;
+  private isSigning = false;
+
   // 检查是否安装了钱包
   isWalletInstalled(): boolean {
     return typeof window !== "undefined" && window.ethereum !== undefined
@@ -30,10 +33,21 @@ class SimpleWalletService {
 
   // 连接钱包
   async connectWallet(): Promise<{ success: boolean; account?: string; error?: string }> {
+    // 防止重复连接
+    if (this.isConnecting) {
+      console.log("已有连接请求正在处理中...")
+      return { success: false, error: "已有连接请求正在处理中，请稍后再试" }
+    }
+    
+    this.isConnecting = true;
+    
     try {
       if (!this.isWalletInstalled()) {
         return { success: false, error: "请安装 MetaMask 或其他以太坊钱包" }
       }
+
+      // 请求连接钱包前，添加延迟
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       // 请求连接钱包
       const accounts = await window.ethereum.request({
@@ -47,17 +61,44 @@ class SimpleWalletService {
       return { success: true, account: accounts[0] }
     } catch (error: any) {
       console.error("连接钱包失败:", error)
+      
+      // 处理特定的错误类型
+      if (error.message?.includes("pending request")) {
+        return { success: false, error: "钱包有未完成的请求，请刷新页面后再试" }
+      }
+      
+      if (error.code === 4001) {
+        return { success: false, error: "用户拒绝了连接请求" }
+      }
+      
+      if (error.code === -32002) {
+        return { success: false, error: "请检查钱包扩展程序并完成待处理的请求" }
+      }
+      
       return { success: false, error: error.message || "连接钱包失败" }
+    } finally {
+      this.isConnecting = false;
     }
   }
 
   // 签名消息
   async signMessage(account: string, message: string): Promise<{ success: boolean; signature?: string; error?: string }> {
+    // 防止重复签名
+    if (this.isSigning) {
+      console.log("已有签名请求正在处理中...")
+      return { success: false, error: "已有签名请求正在处理中，请稍后再试" }
+    }
+
+    this.isSigning = true;
+    
     try {
       if (!this.isWalletInstalled()) {
         return { success: false, error: "钱包未安装" }
       }
 
+      // 在请求签名前，等待一下，确保钱包UI已准备好
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const signature = await window.ethereum.request({
         method: "personal_sign",
         params: [message, account],
@@ -66,7 +107,23 @@ class SimpleWalletService {
       return { success: true, signature }
     } catch (error: any) {
       console.error("签名失败:", error)
+      
+      // 处理特定的错误类型
+      if (error.message?.includes("pending request")) {
+        return { success: false, error: "钱包有未完成的请求，请刷新页面后再试" }
+      }
+      
+      if (error.code === 4001) {
+        return { success: false, error: "用户拒绝了签名请求" }
+      }
+      
+      if (error.code === -32002) {
+        return { success: false, error: "请检查钱包扩展程序并完成待处理的请求" }
+      }
+      
       return { success: false, error: error.message || "签名失败" }
+    } finally {
+      this.isSigning = false;
     }
   }
 

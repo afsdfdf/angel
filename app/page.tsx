@@ -19,20 +19,14 @@ import { AngelBrand } from "@/components/angel-logo"
 import { AirdropClaim } from "@/components/airdrop-claim"
 import { InviteRewards } from "@/components/invite-rewards"
 import { useAuth } from "@/lib/auth-context"
-import { DatabaseService, type User } from "@/lib/database"
+import { DatabaseClientApi } from "@/lib/database-client-api"
 
 export default function HomePage() {
-  // 调试：检查环境变量
-  useEffect(() => {
-    console.log('🔍 客户端环境变量检查:');
-    console.log('NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log('NEXT_PUBLIC_SUPABASE_ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 30) + '...');
-  }, []);
-
+  // 移除调试信息
   const { user, isAuthenticated, updateUser } = useAuth()
   const [loading, setLoading] = useState(false)
 
-  const handleUserChange = (newUser: User | null) => {
+  const handleUserChange = (newUser: any | null) => {
     if (newUser) {
       updateUser(newUser)
     }
@@ -73,7 +67,7 @@ export default function HomePage() {
           <AirdropClaim onClaimed={() => {
             // 刷新用户数据
             if (user) {
-              DatabaseService.getUserByWalletAddress(user.wallet_address).then(updatedUser => {
+              DatabaseClientApi.getUserByWalletAddress(user.wallet_address).then(updatedUser => {
                 if (updatedUser) {
                   updateUser(updatedUser)
                 }
@@ -98,8 +92,40 @@ export default function HomePage() {
             </MemeCard>
           </a>
 
-          {/* 增强的邀请奖励系统 - 预售后位置 */}
-          <InviteRewards />
+          {/* 邀请奖励卡片 - 突出显示三级奖励系统 */}
+          <MemeCard className="p-6 bg-gradient-to-r from-yellow-500 to-amber-600 text-white border-0 shadow-xl rounded-3xl">
+            <div className="text-center mb-4">
+              <Gift className="w-12 h-12 mx-auto mb-2" />
+              <h3 className="text-xl font-bold">邀请奖励升级</h3>
+              <p className="text-sm text-white/80 mb-4">现在支持三级邀请奖励</p>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                <span className="text-sm font-medium">新用户奖励</span>
+                <Badge className="bg-white text-amber-600 font-bold">10,000 ANGEL</Badge>
+              </div>
+              
+              <div className="flex justify-between items-center p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                <span className="text-sm font-medium">一级邀请</span>
+                <Badge className="bg-white text-amber-600 font-bold">3,000 ANGEL</Badge>
+              </div>
+              
+              <div className="flex justify-between items-center p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                <span className="text-sm font-medium">二级邀请</span>
+                <Badge className="bg-white text-amber-600 font-bold">1,500 ANGEL</Badge>
+              </div>
+              
+              <div className="flex justify-between items-center p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                <span className="text-sm font-medium">三级邀请</span>
+                <Badge className="bg-white text-amber-600 font-bold">500 ANGEL</Badge>
+              </div>
+            </div>
+            
+            <div className="mt-4">
+              <InviteRewards />
+            </div>
+          </MemeCard>
 
           {/* 快速统计 - WEB3 风格 */}
           <div className="grid grid-cols-2 gap-4">
@@ -250,8 +276,8 @@ export default function HomePage() {
                 <div className="flex items-start gap-3">
                   <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
                   <div>
-                    <p className="text-sm font-medium text-gray-800">NFT 市场上线</p>
-                    <p className="text-xs text-gray-600 mt-1">独家天使卡牌现已开放交易</p>
+                    <p className="text-sm font-medium text-gray-800">三级邀请奖励上线</p>
+                    <p className="text-xs text-gray-600 mt-1">邀请系统全面升级，支持三级邀请奖励</p>
                   </div>
                 </div>
               </div>
@@ -260,16 +286,13 @@ export default function HomePage() {
                 <div className="flex items-start gap-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
                   <div>
-                    <p className="text-sm font-medium text-gray-800">质押奖励提升</p>
-                    <p className="text-xs text-gray-600 mt-1">年化收益率现已提升至 15%</p>
+                    <p className="text-sm font-medium text-gray-800">钱包连接优化</p>
+                    <p className="text-xs text-gray-600 mt-1">改进的钱包连接体验，减少重复签名问题</p>
                   </div>
                 </div>
               </div>
             </div>
           </MemeCard>
-
-
-
         </div>
       </div>
     </MemeBackground>

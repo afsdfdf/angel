@@ -7,16 +7,16 @@ import { WalletConnect } from "@/components/wallet-connect"
 import { MenuButton } from "@/components/sidebar-nav"
 import { useNavigation } from "@/components/navigation-context"
 import { AngelLogo } from "@/components/angel-logo"
-import type { User } from "@/lib/database"
 import type { LucideIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 
 interface PageHeaderProps {
   title: string
   icon?: LucideIcon
   emoji?: string
   notifications?: number
-  onUserChange?: (user: User | null) => void
+  onUserChange?: (user: any | null) => void
   children?: React.ReactNode
   showBack?: boolean
   variant?: "default" | "transparent" | "solid"
@@ -38,6 +38,14 @@ export function PageHeader({
 }: PageHeaderProps) {
   const router = useRouter()
   const { openSidebar } = useNavigation()
+
+  // Debug log to help diagnose
+  useEffect(() => {
+    if (showBalance) {
+      console.log('PageHeader showBalance:', showBalance)
+      console.log('PageHeader angelBalance:', angelBalance)
+    }
+  }, [showBalance, angelBalance])
 
   const getHeaderStyles = () => {
     switch (variant) {

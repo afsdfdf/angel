@@ -1,285 +1,56 @@
-import { DatabaseService, User, Invitation } from '@/lib/database';
+import { MongoClient, ObjectId } from 'mongodb';
+import { mongodbConfig } from '@/lib/mongodb-config';
+import { Invitation } from '@/lib/database-mongodb';
 
-// NFT类型定义
-export interface NFT {
-  id: string;
+// Define the Land interface
+interface Land {
+  _id?: ObjectId;
+  id?: string;
   name: string;
-  english_name?: string;
   description?: string;
-  image_url?: string;
-  rarity: string;
-  rarity_score: number;
-  attributes: any;
-  creator_id?: string;
   owner_id?: string;
+  location?: {
+    x: number;
+    y: number;
+  };
+  size?: number;
   price?: number;
-  is_for_sale: boolean;
+  status?: 'available' | 'owned' | 'reserved';
   created_at: string;
   updated_at: string;
+  [key: string]: any;
 }
 
-// 土地类型定义
-export interface Land {
-  id: string;
-  name: string;
-  type: string;
-  description?: string;
-  image_url?: string;
-  rarity: string;
-  rarity_score: number;
-  attributes: any;
-  base_price: number;
-  base_income: number;
-  owner_id?: string;
-  level: number;
-  experience: number;
-  is_for_sale: boolean;
-  x_coordinate?: number;
-  y_coordinate?: number;
-  created_at: string;
-  updated_at: string;
+// Get MongoDB client
+async function getMongoClient(): Promise<MongoClient> {
+  const client = new MongoClient(mongodbConfig.uri);
+  await client.connect();
+  return client;
 }
 
-// 管理员功能类
 export class AdminService {
-  // 用户管理
-  static async getAllUsers(): Promise<User[]> {
-    try {
-      return await DatabaseService.getAllUsers();
-    } catch (error) {
-      console.error('获取所有用户失败:', error);
-      return [];
-    }
-  }
-
-  static async updateUser(userId: string, updates: Partial<User>): Promise<User | null> {
-    try {
-      return await DatabaseService.updateUser(userId, updates);
-    } catch (error) {
-      console.error('更新用户失败:', error);
-      return null;
-    }
-  }
-
-  static async addTokensToUser(userId: string, amount: number): Promise<boolean> {
-    try {
-      const user = await DatabaseService.getUserById(userId);
-      if (!user) return false;
-      
-      const updates = {
-        angel_balance: (user.angel_balance || 0) + amount,
-        total_earned: (user.total_earned || 0) + amount,
-      };
-      
-      const result = await DatabaseService.updateUser(userId, updates);
-      
-      // 记录奖励
-      if (result) {
-        await DatabaseService.supabase()
-          .from('reward_records')
-          .insert([{
-            user_id: userId,
-            reward_type: 'bonus',
-            amount: amount,
-            description: '管理员发放奖励',
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          }]);
-      }
-      
-      return !!result;
-    } catch (error) {
-      console.error('添加代币失败:', error);
-      return false;
-    }
-  }
-
-  static async deductTokensFromUser(userId: string, amount: number): Promise<boolean> {
-    try {
-      const user = await DatabaseService.getUserById(userId);
-      if (!user || (user.angel_balance || 0) < amount) return false;
-      
-      const updates = {
-        angel_balance: (user.angel_balance || 0) - amount,
-      };
-      
-      const result = await DatabaseService.updateUser(userId, updates);
-      
-      // 记录扣除
-      if (result) {
-        await DatabaseService.supabase()
-          .from('reward_records')
-          .insert([{
-            user_id: userId,
-            reward_type: 'bonus',
-            amount: -amount,
-            description: '管理员扣除代币',
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          }]);
-      }
-      
-      return !!result;
-    } catch (error) {
-      console.error('扣除代币失败:', error);
-      return false;
-    }
-  }
-
-  // NFT管理
-  static async getAllNFTs(): Promise<NFT[]> {
-    try {
-      const { data, error } = await DatabaseService.supabase()
-        .from('nfts')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('获取所有NFT失败:', error);
-      return [];
-    }
-  }
-
-  static async getNFTById(nftId: string): Promise<NFT | null> {
-    try {
-      const { data, error } = await DatabaseService.supabase()
-        .from('nfts')
-        .select('*')
-        .eq('id', nftId)
-        .single();
-      
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('获取NFT失败:', error);
-      return null;
-    }
-  }
-
-  static async createNFT(nftData: Partial<NFT>): Promise<NFT | null> {
-    try {
-      const { data, error } = await DatabaseService.supabase()
-        .from('nfts')
-        .insert([{
-          ...nftData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('创建NFT失败:', error);
-      return null;
-    }
-  }
-
-  static async updateNFT(nftId: string, updates: Partial<NFT>): Promise<NFT | null> {
-    try {
-      const { data, error } = await DatabaseService.supabase()
-        .from('nfts')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', nftId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('更新NFT失败:', error);
-      return null;
-    }
-  }
-
-  static async transferNFT(nftId: string, fromUserId: string, toUserId: string): Promise<boolean> {
-    try {
-      // 更新NFT所有者
-      const { error: updateError } = await DatabaseService.supabase()
-        .from('nfts')
-        .update({
-          owner_id: toUserId,
-          is_for_sale: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', nftId)
-        .eq('owner_id', fromUserId);
-      
-      if (updateError) throw updateError;
-      
-      // 记录交易历史
-      const { error: historyError } = await DatabaseService.supabase()
-        .from('nft_transactions')
-        .insert([{
-          nft_id: nftId,
-          from_user_id: fromUserId,
-          to_user_id: toUserId,
-          price: 0, // 管理员转移，无价格
-          transaction_type: 'admin_transfer',
-          created_at: new Date().toISOString(),
-        }]);
-      
-      if (historyError) throw historyError;
-      
-      return true;
-    } catch (error) {
-      console.error('转移NFT失败:', error);
-      return false;
-    }
-  }
-
-  // 土地管理
-  static async getAllLands(): Promise<Land[]> {
-    try {
-      const { data, error } = await DatabaseService.supabase()
-        .from('lands')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('获取所有土地失败:', error);
-      return [];
-    }
-  }
-
-  static async getLandById(landId: string): Promise<Land | null> {
-    try {
-      const { data, error } = await DatabaseService.supabase()
-        .from('lands')
-        .select('*')
-        .eq('id', landId)
-        .single();
-      
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('获取土地失败:', error);
-      return null;
-    }
-  }
-
+  // Land management
   static async createLand(landData: Partial<Land>): Promise<Land | null> {
     try {
-      const { data, error } = await DatabaseService.supabase()
-        .from('lands')
-        .insert([{
-          ...landData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }])
-        .select()
-        .single();
+      const client = await getMongoClient();
+      const db = client.db(mongodbConfig.dbName);
       
-      if (error) throw error;
-      return data;
+      const now = new Date().toISOString();
+      const newLand = {
+        ...landData,
+        created_at: now,
+        updated_at: now
+      };
+      
+      const result = await db.collection('lands').insertOne(newLand);
+      
+      if (result.acknowledged) {
+        newLand._id = result.insertedId;
+        newLand.id = result.insertedId.toString();
+      }
+      
+      await client.close();
+      return newLand as Land;
     } catch (error) {
       console.error('创建土地失败:', error);
       return null;
@@ -288,18 +59,23 @@ export class AdminService {
 
   static async updateLand(landId: string, updates: Partial<Land>): Promise<Land | null> {
     try {
-      const { data, error } = await DatabaseService.supabase()
-        .from('lands')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', landId)
-        .select()
-        .single();
+      const client = await getMongoClient();
+      const db = client.db(mongodbConfig.dbName);
       
-      if (error) throw error;
-      return data;
+      const now = new Date().toISOString();
+      const result = await db.collection('lands').findOneAndUpdate(
+        { _id: new ObjectId(landId) },
+        { $set: { ...updates, updated_at: now } },
+        { returnDocument: 'after' }
+      );
+      
+      await client.close();
+      
+      if (result && result._id) {
+        result.id = result._id.toString();
+      }
+      
+      return result as unknown as Land;
     } catch (error) {
       console.error('更新土地失败:', error);
       return null;
@@ -308,17 +84,19 @@ export class AdminService {
 
   static async transferLand(landId: string, toUserId: string): Promise<boolean> {
     try {
-      const { error } = await DatabaseService.supabase()
-        .from('lands')
-        .update({
-          owner_id: toUserId,
-          is_for_sale: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', landId);
+      const client = await getMongoClient();
+      const db = client.db(mongodbConfig.dbName);
       
-      if (error) throw error;
-      return true;
+      const updateResult = await db.collection('lands').updateOne(
+        { _id: new ObjectId(landId) },
+        { $set: { 
+          owner_id: toUserId,
+          updated_at: new Date().toISOString()
+        } }
+      );
+      
+      await client.close();
+      return updateResult.modifiedCount > 0;
     } catch (error) {
       console.error('转移土地失败:', error);
       return false;
@@ -328,7 +106,11 @@ export class AdminService {
   // 邀请系统管理
   static async getAllInvitations(): Promise<Invitation[]> {
     try {
-      return await DatabaseService.getAllInvitations();
+      const client = await getMongoClient();
+      const db = client.db(mongodbConfig.dbName);
+      const invitations = await db.collection('invitations').find({}).toArray();
+      await client.close();
+      return invitations as Invitation[];
     } catch (error) {
       console.error('获取所有邀请失败:', error);
       return [];
@@ -338,17 +120,17 @@ export class AdminService {
   // 日志记录
   static async logAdminAction(adminId: string, action: string, details: any): Promise<boolean> {
     try {
-      const { error } = await DatabaseService.supabase()
-        .from('admin_logs')
-        .insert([{
-          admin_id: adminId,
-          action,
-          details,
-          created_at: new Date().toISOString(),
-        }]);
+      const client = await getMongoClient();
+      const db = client.db(mongodbConfig.dbName);
+      const result = await db.collection('admin_logs').insertOne({
+        admin_id: adminId,
+        action: action,
+        details: details,
+        created_at: new Date().toISOString(),
+      });
       
-      if (error) throw error;
-      return true;
+      await client.close();
+      return result.acknowledged;
     } catch (error) {
       console.error('记录管理员操作失败:', error);
       return false;
@@ -356,62 +138,58 @@ export class AdminService {
   }
 
   // 数据统计
-  static async getDashboardStats(): Promise<any> {
+  static async getDashboardStats(): Promise<{
+    usersCount: number;
+    activeUsers: number;
+    invitationsCount: number;
+    totalTokens: number;
+    nftsCount: number;
+    landsCount: number;
+  }> {
     try {
+      const client = await getMongoClient();
+      const db = client.db(mongodbConfig.dbName);
+      
       // 获取用户总数
-      const { data: usersCount, error: usersError } = await DatabaseService.supabase()
-        .from('users')
-        .select('id', { count: 'exact', head: true });
+      const usersCount = await db.collection('users').countDocuments();
       
       // 获取活跃用户数
-      const { data: activeUsers, error: activeError } = await DatabaseService.supabase()
-        .from('users')
-        .select('id', { count: 'exact', head: true })
-        .eq('is_active', true);
+      const activeUsersCount = await db.collection('users').countDocuments({ is_active: true });
       
       // 获取邀请总数
-      const { data: invitationsCount, error: invitationsError } = await DatabaseService.supabase()
-        .from('invitations')
-        .select('id', { count: 'exact', head: true });
+      const invitationsCount = await db.collection('invitations').countDocuments();
       
       // 获取代币总量
-      const { data: tokensData, error: tokensError } = await DatabaseService.supabase()
-        .from('users')
-        .select('angel_balance');
-      
-      const totalTokens = tokensData?.reduce((sum: number, user: any) => sum + (user.angel_balance || 0), 0) || 0;
+      const tokenAggregation = await db.collection('users').aggregate([
+        { $group: { _id: null, total: { $sum: "$angel_balance" } } }
+      ]).toArray();
+      const totalTokens = tokenAggregation.length > 0 ? tokenAggregation[0].total : 0;
       
       // 获取NFT总数
-      const { data: nftsCount, error: nftsError } = await DatabaseService.supabase()
-        .from('nfts')
-        .select('id', { count: 'exact', head: true });
+      const nftsCount = await db.collection('nfts').countDocuments();
       
       // 获取土地总数
-      const { data: landsCount, error: landsError } = await DatabaseService.supabase()
-        .from('lands')
-        .select('id', { count: 'exact', head: true });
+      const landsCount = await db.collection('lands').countDocuments();
       
-      if (usersError || activeError || invitationsError || tokensError || nftsError || landsError) {
-        throw new Error('获取统计数据失败');
-      }
+      await client.close();
       
       return {
-        usersCount: usersCount?.count || 0,
-        activeUsers: activeUsers?.count || 0,
-        invitationsCount: invitationsCount?.count || 0,
+        usersCount: usersCount || 0,
+        activeUsers: activeUsersCount || 0,
+        invitationsCount: invitationsCount || 0,
         totalTokens,
-        nftsCount: nftsCount?.count || 0,
-        landsCount: landsCount?.count || 0,
+        nftsCount: nftsCount || 0,
+        landsCount: landsCount || 0
       };
     } catch (error) {
-      console.error('获取仪表板统计数据失败:', error);
+      console.error('获取仪表盘统计数据失败:', error);
       return {
         usersCount: 0,
         activeUsers: 0,
         invitationsCount: 0,
         totalTokens: 0,
         nftsCount: 0,
-        landsCount: 0,
+        landsCount: 0
       };
     }
   }

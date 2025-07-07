@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/page-header"
 import { MemeBackground } from "@/components/meme-background"
-import { DatabaseService, REWARD_CONFIG } from "@/lib/database"
+import { DatabaseClientApi } from "@/lib/database-client-api"
 import { useAuth } from "@/lib/auth-context"
 import { 
   Gift, 
@@ -21,6 +21,14 @@ import {
   RefreshCw
 } from "lucide-react"
 import { toast } from "sonner"
+
+// Define reward config directly in this client component
+const REWARD_CONFIG = {
+  WELCOME_BONUS: 10000,
+  REFERRAL_L1: 3000,
+  REFERRAL_L2: 1500,
+  REFERRAL_L3: 500
+};
 
 export default function TestInviteNewPage() {
   const { user, isAuthenticated, generateInviteLink } = useAuth()
@@ -43,7 +51,7 @@ export default function TestInviteNewPage() {
     if (user) {
       const fetchInviteLink = async () => {
         const link = await generateInviteLink(user.wallet_address)
-        setInviteLink(link)
+      setInviteLink(link)
       }
       fetchInviteLink()
     }
@@ -69,18 +77,18 @@ export default function TestInviteNewPage() {
 
     try {
       // 测试1: 检查是否为新用户
-      const isNew = await DatabaseService.isNewUser(testWallet)
+      const isNew = !(await DatabaseClientApi.isUserExists(testWallet))
       setTestResults(prev => ({ ...prev, isNewUser: isNew }))
 
       // 测试2: 检查邀请人是否存在
       if (user) {
-        const inviterExists = await DatabaseService.getUserByWalletAddress(user.wallet_address)
+        const inviterExists = await DatabaseClientApi.getUserByWalletAddress(user.wallet_address)
         setTestResults(prev => ({ ...prev, inviterExists: !!inviterExists }))
 
         // 测试3: 模拟邀请注册流程（仅在新用户情况下）
         if (isNew) {
           // 注意：这里不会真正创建用户，只是测试函数调用
-          const success = await DatabaseService.processInviteRegistration(
+          const success = await DatabaseClientApi.processInviteRegistration(
             testWallet.toLowerCase(),
             user.wallet_address.toLowerCase()
           )
@@ -155,8 +163,11 @@ export default function TestInviteNewPage() {
                   </div>
                 </div>
                 <div>
-                  <Label className="text-sm text-muted-foreground">ANGEL余额</Label>
-                  <p className="text-lg font-semibold">{user.angel_balance?.toLocaleString() || 0}</p>
+                  <Label className="text-sm text-muted-foreground">天使代币</Label>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">天使代币</p>
+                    <p className="text-lg font-semibold">{(user.angel_balance || 0).toLocaleString()}</p>
+                  </div>
                 </div>
                 <div>
                   <Label className="text-sm text-muted-foreground">成功邀请</Label>

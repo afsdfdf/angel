@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { DatabaseService } from '@/lib/database-mongodb';
 
+/**
+ * MongoDB测试API
+ */
 export async function GET() {
   try {
     const isHealthy = await DatabaseService.isHealthy();
@@ -8,21 +11,21 @@ export async function GET() {
     if (isHealthy) {
       return NextResponse.json({
         success: true,
-        message: 'Database connection is healthy',
+        message: 'MongoDB connection is healthy',
         timestamp: new Date().toISOString()
       });
     } else {
       return NextResponse.json({
         success: false,
-        message: 'Database connection failed',
+        message: 'MongoDB connection failed',
         timestamp: new Date().toISOString()
       }, { status: 500 });
     }
   } catch (error) {
-    console.error('Health check error:', error);
+    console.error('MongoDB test error:', error);
     return NextResponse.json({
       success: false,
-      message: 'Health check error',
+      message: 'MongoDB test error',
       error: error instanceof Error ? error.message : String(error),
       timestamp: new Date().toISOString()
     }, { status: 500 });

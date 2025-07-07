@@ -24,8 +24,8 @@ export default function StakingPage() {
       name: "ANGEL 灵活质押", 
       apy: "12.5%", 
       token: "ANGEL",
-      myStaked: "5,000 ANGEL", 
-      rewards: "125.47 ANGEL",
+      myStaked: "0 ANGEL", 
+      rewards: "0 ANGEL",
       type: "flexible",
       description: "随时存取，灵活便捷"
     },
@@ -33,8 +33,8 @@ export default function StakingPage() {
       name: "ANGEL 30天锁定", 
       apy: "25.8%", 
       token: "ANGEL",
-      myStaked: "10,000 ANGEL", 
-      rewards: "258.90 ANGEL",
+      myStaked: "0 ANGEL", 
+      rewards: "0 ANGEL",
       type: "30day",
       description: "30天锁定期，更高收益"
     },
@@ -55,31 +55,31 @@ export default function StakingPage() {
       name: "天使NFT质押",
       apy: "35.0%",
       emoji: "😇",
-      myStaked: "3 NFTs",
-      rewards: "89.25 ANGEL",
+      myStaked: "0 NFTs",
+      rewards: "0 ANGEL",
       description: "质押天使NFT获得丰厚奖励",
-      nftCount: 3,
-      totalPower: 7500
+      nftCount: 0,
+      totalPower: 0
     },
     {
       name: "传说NFT质押",
       apy: "55.0%",
       emoji: "👑",
-      myStaked: "1 NFT",
-      rewards: "156.78 ANGEL",
+      myStaked: "0 NFT",
+      rewards: "0 ANGEL",
       description: "传说级NFT专属质押池",
-      nftCount: 1,
-      totalPower: 2850
+      nftCount: 0,
+      totalPower: 0
     },
     {
       name: "史诗NFT质押",
       apy: "42.0%",
       emoji: "⚔️",
-      myStaked: "2 NFTs",
-      rewards: "98.45 ANGEL",
+      myStaked: "0 NFTs",
+      rewards: "0 ANGEL",
       description: "史诗级NFT质押获得额外收益",
-      nftCount: 2,
-      totalPower: 4400
+      nftCount: 0,
+      totalPower: 0
     }
   ]
 
@@ -89,20 +89,20 @@ export default function StakingPage() {
       name: "天堂花园质押",
       apy: "28.0%",
       emoji: "🌸",
-      myStaked: "2 lands",
-      rewards: "67.89 ANGEL",
+      myStaked: "0 lands",
+      rewards: "0 ANGEL",
       description: "质押天堂花园获得稳定收益",
-      landCount: 2,
+      landCount: 0,
       landType: "Garden"
     },
     {
       name: "神圣山峰质押",
       apy: "38.0%",
       emoji: "⛰️",
-      myStaked: "1 land",
-      rewards: "45.67 ANGEL",
+      myStaked: "0 land",
+      rewards: "0 ANGEL",
       description: "神圣山峰带来更高收益",
-      landCount: 1,
+      landCount: 0,
       landType: "Mountain"
     },
     {
@@ -123,8 +123,8 @@ export default function StakingPage() {
       name: "天使基金会质押",
       apy: "18.0%",
       emoji: "🏛️",
-      myStaked: "50,000 ANGEL",
-      rewards: "2,456.78 ANGEL",
+      myStaked: "0 ANGEL",
+      rewards: "0 ANGEL",
       description: "支持天使生态发展，获得稳定收益",
       minStake: "10,000 ANGEL",
       lockPeriod: "365天"
@@ -133,8 +133,8 @@ export default function StakingPage() {
       name: "社区治理质押",
       apy: "22.0%",
       emoji: "🗳️",
-      myStaked: "25,000 ANGEL",
-      rewards: "1,234.56 ANGEL",
+      myStaked: "0 ANGEL",
+      rewards: "0 ANGEL",
       description: "参与社区治理，享受治理权益",
       minStake: "5,000 ANGEL",
       lockPeriod: "180天"
@@ -148,10 +148,10 @@ export default function StakingPage() {
       apy: "68.5%",
       token1: "ANGEL",
       token2: "BNB",
-      myStaked: "1.25 LP",
-      rewards: "345.67 ANGEL",
+      myStaked: "0 LP",
+      rewards: "0 ANGEL",
       description: "提供流动性获得最高收益",
-      tvl: "$2.4M",
+      tvl: "$0",
       apr: "68.5%"
     },
     {
@@ -159,10 +159,10 @@ export default function StakingPage() {
       apy: "52.0%",
       token1: "ANGEL",
       token2: "USDT",
-      myStaked: "0.85 LP",
-      rewards: "156.89 ANGEL",
+      myStaked: "0 LP",
+      rewards: "0 ANGEL",
       description: "稳定币LP质押，风险较低",
-      tvl: "$1.8M",
+      tvl: "$0",
       apr: "52.0%"
     },
     {
@@ -173,7 +173,7 @@ export default function StakingPage() {
       myStaked: "0 LP",
       rewards: "0 ANGEL",
       description: "BUSD LP质押，稳定收益",
-      tvl: "$1.2M",
+      tvl: "$0",
       apr: "48.0%"
     }
   ]
@@ -210,10 +210,10 @@ export default function StakingPage() {
           {/* 统计概览 */}
           <div className="grid grid-cols-2 gap-4">
             {[
-              { icon: Coins, label: "总质押", value: "5.2M", color: "bg-gradient-primary", shadow: "shadow-angel-primary" },
-              { icon: TrendingUp, label: "总APY", value: "28.5%", color: "bg-gradient-secondary", shadow: "shadow-angel-secondary" },
-              { icon: Gift, label: "待领取", value: "384.37", color: "bg-gradient-gold", shadow: "shadow-angel-gold" },
-              { icon: Star, label: "我的质押", value: "15K", color: "bg-angel-success", shadow: "shadow-angel-accent" },
+              { icon: Coins, label: "总质押", value: "0", color: "bg-gradient-primary", shadow: "shadow-angel-primary" },
+              { icon: TrendingUp, label: "总APY", value: "0%", color: "bg-gradient-secondary", shadow: "shadow-angel-secondary" },
+              { icon: Gift, label: "待领取", value: "0", color: "bg-gradient-gold", shadow: "shadow-angel-gold" },
+              { icon: Star, label: "我的质押", value: "0", color: "bg-angel-success", shadow: "shadow-angel-accent" },
             ].map((stat, index) => {
               const IconComponent = stat.icon
               return (

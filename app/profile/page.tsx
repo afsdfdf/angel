@@ -13,7 +13,23 @@ import { PageHeader } from "@/components/page-header"
 import { MemeBackground, MemeCard, MemeButton } from "@/components/meme-background"
 import { WalletConnect } from "@/components/wallet-connect"
 import { useAuth } from "@/lib/auth-context"
-import { DatabaseService, type Invitation } from "@/lib/database"
+import { DatabaseClientApi } from "@/lib/database-client-api"
+
+// Define Invitation interface locally
+interface Invitation {
+  id?: string;
+  inviter_id: string;
+  invitee_id?: string;
+  invitee_wallet_address?: string;
+  inviter_wallet_address: string;
+  status: string;
+  level: number;
+  reward_amount: number;
+  reward_claimed: boolean;
+  created_at: string;
+  accepted_at?: string;
+  expires_at?: string;
+}
 
 export default function ProfilePage() {
   const { user, isAuthenticated } = useAuth()
@@ -30,17 +46,17 @@ export default function ProfilePage() {
   // 生成邀请链接
   const generateLink = async () => {
     if (!user) return
-    const link = await DatabaseService.generateInviteLink(user.wallet_address)
+    const link = await DatabaseClientApi.generateInviteLink(user.wallet_address)
     setInviteLink(link)
   }
 
   // 加载邀请记录
   const loadInvitations = async () => {
-    if (!user) return
+    if (!user || !user.id) return
     
     setIsLoading(true)
     try {
-      const data = await DatabaseService.getInvitationsByUser(user.id)
+      const data = await DatabaseClientApi.getUserInvitations(user.id)
       setInvitations(data)
     } catch (error) {
       console.error('加载邀请记录失败:', error)
@@ -88,7 +104,7 @@ export default function ProfilePage() {
 
     try {
       setIsLoading(true)
-      const newInviteLink = await DatabaseService.generateInviteLink(user.wallet_address)
+      const newInviteLink = await DatabaseClientApi.generateInviteLink(user.wallet_address)
 
       if (newInviteLink) {
         setInviteLink(newInviteLink)
@@ -190,8 +206,10 @@ export default function ProfilePage() {
           {/* 统计数据 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: "天使代币", value: `${user.angel_balance?.toLocaleString() || 0}`, emoji: "💰" },
-              { label: "总收益", value: `${user.total_earned?.toLocaleString() || 0}`, emoji: "🎯" },
+              { label: "用户名", value: user.username || "未设置", emoji: "👤" },
+              { label: "等级", value: `Lv.${user.level || 1}`, emoji: "⭐" },
+              { label: "天使代币", value: `${(user.angel_balance || 0).toLocaleString()}`, emoji: "💰" },
+              { label: "总收益", value: `${(user.total_earned || 0).toLocaleString()}`, emoji: "🎯" },
               { label: "推荐数", value: user.invites_count?.toString() || "0", emoji: "👥" },
               { label: "等级", value: `L${user.level || 1}`, emoji: "🏆" },
             ].map((stat, index) => (

@@ -11,8 +11,16 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
-import { DatabaseService, REWARD_CONFIG, type Invitation } from "@/lib/database"
+import { DatabaseClientApi } from "@/lib/database-client-api"
 import { MemeCard } from "@/components/meme-background"
+
+// Define reward config directly in this client component
+const REWARD_CONFIG = {
+  WELCOME_BONUS: 10000,
+  REFERRAL_L1: 3000,
+  REFERRAL_L2: 1500,
+  REFERRAL_L3: 500
+};
 
 interface InviteStats {
   level1Count: number
@@ -26,7 +34,7 @@ interface InviteStats {
 export function InviteRewards() {
   const { user, isAuthenticated } = useAuth()
   const [inviteLink, setInviteLink] = useState("")
-  const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [invitations, setInvitations] = useState<any[]>([])
   const [stats, setStats] = useState<InviteStats>({
     level1Count: 0,
     level2Count: 0,
@@ -41,18 +49,18 @@ export function InviteRewards() {
   // 生成邀请链接
   const generateInviteLink = async () => {
     if (!user) return
-    const link = await DatabaseService.generateInviteLink(user.wallet_address)
+    const link = await DatabaseClientApi.generateInviteLink(user.wallet_address)
     setInviteLink(link)
   }
 
   // 加载邀请数据和统计
   const loadInviteData = async () => {
-    if (!user) return
+    if (!user || !user.id) return
     
     setIsLoading(true)
     try {
       // 获取邀请记录
-      const inviteData = await DatabaseService.getInvitationsByUser(user.id)
+      const inviteData = await DatabaseClientApi.getUserInvitations(user.id)
       setInvitations(inviteData)
       
       // 计算统计数据
@@ -65,7 +73,7 @@ export function InviteRewards() {
         claimedRewards: 0,
       }
       
-      inviteData.forEach(invite => {
+      inviteData.forEach((invite: any) => {
         // 简单处理：所有邀请都算作一级邀请
         newStats.level1Count++;
         
@@ -74,7 +82,7 @@ export function InviteRewards() {
           newStats.totalRewards += invite.reward_amount || 0;
           // 简化处理：所有接受的邀请都算作已领取
           newStats.claimedRewards += invite.reward_amount || 0;
-        } else {
+          } else {
           // 未接受的邀请算作待领取
           newStats.pendingRewards += invite.reward_amount || 0;
         }
@@ -108,18 +116,26 @@ export function InviteRewards() {
     
     try {
       if (navigator.share) {
-        await navigator.share({
-          title: '加入天使加密',
-          text: `邀请您加入天使加密，获得${REWARD_CONFIG.WELCOME_BONUS}枚天使代币！`,
-          url: inviteLink,
-        })
+        try {
+          await navigator.share({
+            title: '加入天使加密',
+            text: `邀请您加入天使加密，获得${REWARD_CONFIG.WELCOME_BONUS}枚天使代币！`,
+            url: inviteLink,
+          })
+        } catch (error) {
+          console.error("分享失败:", error)
+          // 如果分享API失败，回退到复制链接
+          await copyInviteLink()
+          toast.success("已复制邀请链接到剪贴板")
+        }
       } else {
         // 降级到复制
-        copyInviteLink()
+        await copyInviteLink()
+        toast.success("已复制邀请链接到剪贴板")
       }
     } catch (error) {
-      console.error("分享失败:", error)
-      copyInviteLink()
+      console.error("操作失败:", error)
+      toast.error("操作失败，请手动复制链接")
     }
   }
 
@@ -155,7 +171,7 @@ export function InviteRewards() {
               </div>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-bold">{stats.totalRewards.toLocaleString()}</p>
+              <p className="text-2xl font-bold">{(stats.totalRewards || 0).toLocaleString()}</p>
               <p className="text-white/80 text-sm">总奖励 ANGEL</p>
             </div>
           </div>
@@ -224,7 +240,7 @@ export function InviteRewards() {
             <Input
               value={inviteLink}
               readOnly
-              className="flex-1 font-mono text-xs bg-gray-50"
+              className="flex-1 font-mono text-xs bg-gray-50 text-black"
               placeholder="生成邀请链接中..."
             />
             <Button

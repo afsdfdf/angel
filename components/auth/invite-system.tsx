@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { DatabaseService, Invitation } from '@/lib/database';
+import { DatabaseClientApi } from '@/lib/database-client-api';
+import type { Invitation } from '@/lib/database-mongodb';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Copy, Share2, Users, Gift, ExternalLink, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
+import { REWARD_CONFIG } from '@/lib/database-mongodb';
 
 export function InviteSystem() {
   const { user, isAuthenticated, generateInviteLink } = useAuth();
@@ -32,7 +34,7 @@ export function InviteSystem() {
     
     setIsLoading(true);
     try {
-      const data = await DatabaseService.getInvitationsByUser(user.id);
+      const data = await DatabaseClientApi.getUserInvitations(user.id);
       setInvitations(data);
     } catch (error) {
       console.error('加载邀请记录失败:', error);
@@ -52,7 +54,7 @@ export function InviteSystem() {
     setIsGenerating(true);
     try {
       console.log('🔄 生成邀请链接，用户:', user);
-      const link = await DatabaseService.generateInviteLink(user.wallet_address);
+      const link = await DatabaseClientApi.generateInviteLink(user.wallet_address);
       
       if (!link) {
         console.error('❌ 生成邀请链接失败');
@@ -282,16 +284,20 @@ export function InviteSystem() {
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="bg-background/50 rounded p-2">
                     <p className="text-xs text-muted-foreground">新用户</p>
-                    <p className="font-bold text-angel-primary">100</p>
+                    <p className="font-bold text-angel-primary">{REWARD_CONFIG.WELCOME_BONUS}</p>
                   </div>
                   <div className="bg-background/50 rounded p-2">
                     <p className="text-xs text-muted-foreground">一级邀请</p>
-                    <p className="font-bold text-angel-success">50</p>
+                    <p className="font-bold text-angel-success">{REWARD_CONFIG.REFERRAL_L1}</p>
                   </div>
                   <div className="bg-background/50 rounded p-2">
                     <p className="text-xs text-muted-foreground">二级邀请</p>
-                    <p className="font-bold text-angel-secondary">25</p>
+                    <p className="font-bold text-angel-secondary">{REWARD_CONFIG.REFERRAL_L2}</p>
                   </div>
+                </div>
+                <div className="mt-2 bg-background/50 rounded p-2 text-center">
+                  <p className="text-xs text-muted-foreground">三级邀请</p>
+                  <p className="font-bold text-angel-accent">{REWARD_CONFIG.REFERRAL_L3}</p>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
                   每成功邀请一位新用户，您将获得相应的ANGEL代币奖励

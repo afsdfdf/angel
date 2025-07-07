@@ -8,8 +8,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Gift, Sparkles, CheckCircle, Loader2 } from "lucide-react"
 import { WalletConnect } from "@/components/wallet-connect"
 import { MemeCard, MemeButton } from "@/components/meme-background"
-import { DatabaseService, REWARD_CONFIG, type User } from "@/lib/database"
+import { DatabaseClientApi } from "@/lib/database-client-api"
 import { useAuth } from "@/lib/auth-context"
+
+// Define reward config directly in this client component
+const REWARD_CONFIG = {
+  WELCOME_BONUS: 10000,
+  REFERRAL_L1: 3000,
+  REFERRAL_L2: 1500,
+  REFERRAL_L3: 500
+};
 
 interface AirdropClaimProps {
   onClaimed?: () => void
@@ -22,14 +30,14 @@ export function AirdropClaim({ onClaimed }: AirdropClaimProps) {
   const [error, setError] = useState<string | null>(null)
 
   const handleClaim = async () => {
-    if (!user) return
+    if (!user || !user.id) return
     
     setIsLoading(true)
     setError(null)
     
     try {
       // 检查是否已经领取过
-      const rewardRecords = await DatabaseService.getRewardRecords(user.id)
+      const rewardRecords = await DatabaseClientApi.getUserRewards(user.id)
       const hasWelcomeReward = rewardRecords.some(record => record.reward_type === 'welcome')
       
       if (hasWelcomeReward) {
@@ -38,7 +46,7 @@ export function AirdropClaim({ onClaimed }: AirdropClaimProps) {
       }
       
       // 记录欢迎奖励
-      const success = await DatabaseService.recordWelcomeReward(user.id)
+      const success = await DatabaseClientApi.recordWelcomeReward(user.id)
       
       if (success) {
         setIsClaimed(true)
@@ -46,7 +54,7 @@ export function AirdropClaim({ onClaimed }: AirdropClaimProps) {
       } else {
         setError("数据库暂时不可用，请稍后重试")
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("空投领取失败:", err)
       setError("数据库连接失败，请稍后重试")
     } finally {
@@ -62,7 +70,7 @@ export function AirdropClaim({ onClaimed }: AirdropClaimProps) {
           <div className="text-4xl mb-3">🎁</div>
           <h3 className="text-xl font-bold mb-2">新用户空投</h3>
           <p className="text-white/90 text-sm mb-4">
-            连接钱包立即领取 {REWARD_CONFIG.WELCOME_BONUS.toLocaleString()} ANGEL 代币
+            连接钱包立即领取 {(REWARD_CONFIG.WELCOME_BONUS || 0).toLocaleString()} ANGEL 代币
           </p>
           <WalletConnect />
         </div>
@@ -78,7 +86,7 @@ export function AirdropClaim({ onClaimed }: AirdropClaimProps) {
           <div className="text-4xl mb-3">✅</div>
           <h3 className="text-xl font-bold mb-2">空投领取成功</h3>
           <p className="text-white/90 text-sm mb-4">
-            恭喜您获得 {REWARD_CONFIG.WELCOME_BONUS.toLocaleString()} ANGEL 代币！
+            恭喜您获得 {(REWARD_CONFIG.WELCOME_BONUS || 0).toLocaleString()} ANGEL 代币！
           </p>
           <Badge variant="secondary" className="bg-white/20 text-white">
             <CheckCircle className="w-4 h-4 mr-1" />
@@ -102,7 +110,7 @@ export function AirdropClaim({ onClaimed }: AirdropClaimProps) {
         <div className="flex items-center justify-center gap-2 mb-4">
           <Sparkles className="w-5 h-5" />
           <span className="text-2xl font-bold">
-            {REWARD_CONFIG.WELCOME_BONUS.toLocaleString()} ANGEL
+            {(REWARD_CONFIG.WELCOME_BONUS || 0).toLocaleString()} ANGEL
           </span>
           <Sparkles className="w-5 h-5" />
         </div>

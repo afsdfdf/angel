@@ -1,95 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseServiceFixed } from '@/lib/database-fixed';
+import { DatabaseService } from '@/lib/database-mongodb';
 
 /**
- * 获取所有用户
+ * 通过钱包地址获取用户
  */
 export async function GET(request: NextRequest) {
   try {
-    // 检查授权（在实际应用中应该使用更安全的授权机制）
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: '未授权访问' }, { status: 401 });
+    const { searchParams } = new URL(request.url);
+    const wallet = searchParams.get('wallet');
+    
+    if (!wallet) {
+      return NextResponse.json({
+        success: false,
+        error: 'Missing wallet address parameter'
+      }, { status: 400 });
     }
     
-    // 获取用户数据
-    const users = await DatabaseServiceFixed.getAllUsers();
+    const user = await DatabaseService.getUserByWalletAddress(wallet);
     
-    // 过滤敏感信息
-    const safeUsers = users.map(user => ({
-      id: user.id,
-      wallet_address: user.wallet_address,
-      username: user.username,
-      invites_count: user.invites_count,
-      angel_balance: user.angel_balance,
-      is_active: user.is_active,
-      created_at: user.created_at
-    }));
+    if (!user) {
+      return NextResponse.json({
+        success: false,
+        error: 'User not found'
+      }, { status: 404 });
+    }
     
     return NextResponse.json({
-      count: safeUsers.length,
-      data: safeUsers,
-      timestamp: new Date().toISOString()
-    }, { status: 200 });
-  } catch (error: any) {
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    console.error('获取用户失败:', error);
     return NextResponse.json({
-      error: '获取用户数据失败',
-      message: error.message,
-      timestamp: new Date().toISOString()
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }
 
 /**
- * 创建新用户
+ * 创建用户
  */
 export async function POST(request: NextRequest) {
   try {
-    // 检查授权
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: '未授权访问' }, { status: 401 });
+    const userData = await request.json();
+    
+    if (!userData.wallet_address) {
+      return NextResponse.json({
+        success: false,
+        error: 'Wallet address is required'
+      }, { status: 400 });
     }
     
-    // 获取请求数据
-    const requestData = await request.json();
+    const user = await DatabaseService.createUser(userData);
     
-    // 验证必要字段
-    if (!requestData.wallet_address) {
-      return NextResponse.json({ error: '缺少必要字段 wallet_address' }, { status: 400 });
-    }
-    
-    // 检查用户是否已存在
-    const existingUser = await DatabaseServiceFixed.getUserByWalletAddress(requestData.wallet_address);
-    if (existingUser) {
-      return NextResponse.json({ 
-        error: '用户已存在', 
-        user: existingUser 
-      }, { status: 409 });
-    }
-    
-    // 创建新用户
-    const newUser = await DatabaseServiceFixed.createUser({
-      wallet_address: requestData.wallet_address,
-      username: requestData.username,
-      email: requestData.email,
-      avatar_url: requestData.avatar_url
-    });
-    
-    if (!newUser) {
-      return NextResponse.json({ error: '创建用户失败' }, { status: 500 });
+    if (!user) {
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to create user'
+      }, { status: 500 });
     }
     
     return NextResponse.json({
-      message: '用户创建成功',
-      user: newUser,
-      timestamp: new Date().toISOString()
+      success: true,
+      data: user
     }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
+    console.error('创建用户失败:', error);
     return NextResponse.json({
-      error: '创建用户失败',
-      message: error.message,
-      timestamp: new Date().toISOString()
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }
@@ -120,7 +100,7 @@ export async function PATCH(request: NextRequest) {
     delete updates.id; // 不允许更新ID
     
     // 更新用户
-    const updatedUser = await DatabaseServiceFixed.updateUser(id, updates);
+    const updatedUser = await DatabaseService.updateUser(id, updates);
     
     if (!updatedUser) {
       return NextResponse.json(

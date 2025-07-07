@@ -8,10 +8,42 @@ import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/page-header"
 import { MemeBackground } from "@/components/meme-background"
 import { WalletConnect } from "@/components/wallet-connect"
-import { DatabaseService, type User, type Invitation, type RewardRecord, REWARD_CONFIG } from "@/lib/database"
+import { DatabaseClientApi } from "@/lib/database-client-api"
 import { Copy, Share2, Users, Gift, CheckCircle, XCircle, Coins, Link as LinkIcon, RefreshCw, AlertCircle } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
+
+// Define types locally
+interface User {
+  id: string;
+  wallet_address: string;
+  angel_balance?: number;
+}
+
+interface Invitation {
+  id?: string;
+  inviter_id: string;
+  invitee_id?: string;
+  status: string;
+  created_at: string;
+}
+
+interface RewardRecord {
+  id?: string;
+  user_id: string;
+  reward_type: string;
+  amount: number;
+  description: string;
+  created_at: string;
+}
+
+// Define reward config directly in this client component
+const REWARD_CONFIG = {
+  WELCOME_BONUS: 10000,
+  REFERRAL_L1: 3000,
+  REFERRAL_L2: 1500,
+  REFERRAL_L3: 500
+};
 
 interface TestResult {
   linkGenerated: boolean
@@ -50,8 +82,8 @@ export default function TestInvitePage() {
   const loadUserData = async (userId: string) => {
     try {
       const [userInvitations, userRewards] = await Promise.all([
-        DatabaseService.getInvitationsByUser(userId),
-        DatabaseService.getRewardRecords(userId)
+        DatabaseClientApi.getUserInvitations(userId),
+        DatabaseClientApi.getUserRewards(userId)
       ])
       setInvitations(userInvitations)
       setRewardRecords(userRewards)
@@ -65,7 +97,7 @@ export default function TestInvitePage() {
 
     setIsLoading(true)
     try {
-      const link = await DatabaseService.generateInviteLink(user.wallet_address)
+      const link = await DatabaseClientApi.generateInviteLink(user.wallet_address)
       setInviteLink(link)
       
       // 验证链接格式
@@ -93,7 +125,7 @@ export default function TestInvitePage() {
     if (!user) return
 
     try {
-      const userData = await DatabaseService.getUserById(user.id)
+      const userData = await DatabaseClientApi.getUserByWalletAddress(user.wallet_address)
       setTestResults(prev => ({
         ...prev,
         databaseConnection: !!userData,
@@ -112,7 +144,7 @@ export default function TestInvitePage() {
     if (!user) return
 
     try {
-      const newInviteLink = await DatabaseService.generateInviteLink(user.wallet_address)
+      const newInviteLink = await DatabaseClientApi.generateInviteLink(user.wallet_address)
       setTestResults(prev => ({
         ...prev,
         inviteCreation: !!newInviteLink,
@@ -132,7 +164,7 @@ export default function TestInvitePage() {
     if (!user) return
 
     try {
-      const data = await DatabaseService.getInvitationsByUser(user.id)
+      const data = await DatabaseClientApi.getUserInvitations(user.id)
       setInvitations(data)
     } catch (error) {
       console.error('加载邀请记录失败:', error)

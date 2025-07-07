@@ -30,7 +30,7 @@ import {
   FileText,
   Database
 } from 'lucide-react'
-import { DatabaseService, User, Invitation } from '@/lib/database'
+import { DatabaseService, type User, type Invitation } from '@/lib/database-mongodb'
 import { PageHeader } from '@/components/page-header'
 import { AdminService, NFT, Land } from './admin-functions'
 
@@ -263,7 +263,7 @@ export default function AdminPage() {
         return
       }
       
-      const success = await AdminService.transferNFT(nftId, nft.owner_id, toUserId)
+      const success = await AdminService.transferNFT(nftId, toUserId)
       if (success) {
         const updatedNfts = await AdminService.getAllNFTs()
         setNfts(updatedNfts)
@@ -424,7 +424,7 @@ export default function AdminPage() {
               <Coins className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dashboardStats.totalTokens.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{(dashboardStats.totalTokens || 0).toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 ANGEL 代币总量
               </p>

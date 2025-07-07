@@ -1,7 +1,26 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { DatabaseService, type User } from './database'
+import { DatabaseClientApi } from './database-client-api'
+
+// Define User type locally to avoid server imports
+export interface User {
+  _id?: string;
+  id?: string;
+  wallet_address: string;
+  email?: string;
+  username?: string;
+  avatar_url?: string;
+  referred_by?: string;
+  invites_count: number;
+  angel_balance: number;
+  total_earned: number;
+  level: number;
+  is_active: boolean;
+  is_admin: boolean;
+  created_at: string;
+  updated_at?: string;
+}
 
 interface AuthContextType {
   user: User | null
@@ -48,7 +67,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     try {
       console.log('生成邀请链接，钱包地址:', walletAddress);
-      return await DatabaseService.generateInviteLink(walletAddress);
+      return await DatabaseClientApi.generateInviteLink(walletAddress);
     } catch (error) {
       console.error('生成邀请链接失败:', error);
       return '';
