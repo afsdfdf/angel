@@ -15,7 +15,7 @@ export default function InvitePage() {
   const params = useParams()
   const router = useRouter()
   const { login } = useAuth()
-  const inviterWalletAddress = params.code as string
+  const inviteCode = params.code as string
   
   const [inviter, setInviter] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -24,27 +24,33 @@ export default function InvitePage() {
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
 
   useEffect(() => {
-    if (inviterWalletAddress) {
+    if (inviteCode) {
       loadInviterInfo()
     }
-  }, [inviterWalletAddress])
+  }, [inviteCode])
 
   const loadInviterInfo = async () => {
     try {
       setIsLoading(true)
       setError(null)
       
-      // 验证钱包地址格式
-      if (!inviterWalletAddress || !inviterWalletAddress.startsWith('0x') || inviterWalletAddress.length !== 42) {
+      console.log('🔍 加载邀请人信息，邀请码:', inviteCode)
+      
+      // 验证邀请码格式
+      if (!inviteCode || inviteCode.length < 10) {
+        console.error('❌ 邀请码格式无效:', inviteCode)
         setError("邀请链接格式无效")
         return
       }
 
-      const inviterData = await DatabaseService.getUserByWalletAddress(inviterWalletAddress)
+      // 通过ID查询邀请人
+      const inviterData = await DatabaseService.getUserById(inviteCode)
       
       if (inviterData) {
+        console.log('✅ 找到邀请人:', inviterData)
         setInviter(inviterData)
       } else {
+        console.error('❌ 邀请人不存在:', inviteCode)
         setError("邀请人不存在或邀请链接无效")
       }
     } catch (error) {
@@ -62,22 +68,94 @@ export default function InvitePage() {
       setIsRegistering(true)
       
       // 检查是否为新用户通过邀请链接注册
+      console.log('🔍 检查是否为新用户:', user.wallet_address)
       const isNewUser = await DatabaseService.isNewUser(user.wallet_address)
+      console.log('✅ 是否为新用户:', isNewUser)
+      
+      // 检查邀请人是否存在
+      console.log('🔍 检查邀请人:', inviteCode)
+      const inviter = await DatabaseService.getUserById(inviteCode)
+      console.log('✅ 邀请人存在:', !!inviter)
+      
+      if (!inviter) {
+        console.error('❌ 邀请人不存在:', inviteCode)
+        setError("邀请人不存在或邀请链接无效")
+        setIsRegistering(false)
+        return
+      }
       
       if (isNewUser) {
         // 新用户通过邀请链接注册
+        console.log('🔄 处理新用户邀请注册:', {
+          newUserWallet: user.wallet_address,
+          inviterId: inviter.id,
+          inviterWallet: inviter.wallet_address
+        })
+        
+        // 确保用户已经创建
+        console.log('🔄 确认用户已创建')
+        const createdUser = await DatabaseService.getUserByWalletAddress(user.wallet_address)
+        
+        if (!createdUser) {
+          console.error('❌ 用户未被创建')
+          setError("用户创建失败，请重试")
+          setIsRegistering(false)
+          return
+        }
+        
         // 处理邀请注册关系
-        const success = await DatabaseService.processInviteRegistration(
+        console.log('🔄 调用处理邀请函数，参数:', {
+          newUserWallet: user.wallet_address.toLowerCase(),
+          inviterWallet: inviter.wallet_address.toLowerCase()
+        })
+        
+        const success = await DatabaseService.processInviteRegistrationById(
           user.wallet_address.toLowerCase(),
-          inviterWalletAddress.toLowerCase()
+          inviter.id
         )
+        
+        console.log('✅ 邀请处理结果:', success)
+        
+        if (!success) {
+          console.log('⚠️ 邀请处理失败，尝试备用方法...')
+          // 尝试备用方法
+          const backupSuccess = await DatabaseService.directInsertInvitationById(
+            user.wallet_address.toLowerCase(),
+            inviter.id
+          )
+          console.log('备用方法结果:', backupSuccess)
+          
+          if (!backupSuccess) {
+            console.error('❌ 所有邀请处理方法都失败')
+            setError("邀请处理失败，但您已成功登录")
+          } else {
+            console.log('✅ 备用方法成功处理邀请')
+            // 继续处理成功逻辑
+            const updatedUser = await DatabaseService.getUserByWalletAddress(user.wallet_address)
+            if (updatedUser) {
+              await login(updatedUser)
+            } else {
+              await login(user)
+            }
+            setRegistrationSuccess(true)
+            
+            // 3秒后跳转到主页
+            setTimeout(() => {
+              router.push('/')
+            }, 3000)
+            return
+          }
+        }
         
         if (success) {
           // 重新获取用户信息（包含奖励）
+          console.log('🔄 重新获取用户信息')
           const updatedUser = await DatabaseService.getUserByWalletAddress(user.wallet_address)
           if (updatedUser) {
+            console.log('✅ 获取更新后的用户信息成功')
             await login(updatedUser)
           } else {
+            console.log('⚠️ 获取更新后的用户信息失败，使用原始用户信息')
             await login(user)
           }
           setRegistrationSuccess(true)
@@ -86,13 +164,10 @@ export default function InvitePage() {
           setTimeout(() => {
             router.push('/')
           }, 3000)
-        } else {
-          // 邀请处理失败，但仍然登录用户
-          await login(user)
-          setError("邀请处理失败，但您已成功登录")
         }
       } else {
         // 已存在用户直接登录
+        console.log('ℹ️ 已存在用户，直接登录')
         await login(user)
         
         // 1秒后跳转到主页
@@ -101,8 +176,8 @@ export default function InvitePage() {
         }, 1000)
       }
     } catch (error: any) {
-      console.error("处理用户登录失败:", error)
-      setError("处理用户登录失败，请重试")
+      console.error("❌ 处理用户登录失败:", error)
+      setError(`处理用户登录失败: ${error.message || '未知错误'}`)
     } finally {
       setIsRegistering(false)
     }
@@ -134,7 +209,7 @@ export default function InvitePage() {
               <h3 className="text-foreground font-bold text-lg mb-2">邀请链接无效</h3>
               <p className="text-muted-foreground text-sm mb-4">{error}</p>
                               <div className="space-y-2">
-                  <WalletConnect onUserChange={handleUserChange} />
+                  <WalletConnect onUserChange={handleUserChange} inviterWallet={inviteCode} />
                   <p className="text-xs text-muted-foreground">
                     您仍可以正常连接钱包使用应用
                   </p>
@@ -225,7 +300,7 @@ export default function InvitePage() {
                       {inviter?.username || `用户${inviter?.wallet_address?.slice(0, 6)}...${inviter?.wallet_address?.slice(-4)}`}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      已邀请 {inviter?.total_referrals || 0} 人
+                      已邀请 {inviter?.invites_count || 0} 人
                     </p>
                   </div>
                 </div>
@@ -233,7 +308,7 @@ export default function InvitePage() {
                 <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border">
                   <span className="text-muted-foreground text-sm">邀请人地址</span>
                   <Badge className="bg-angel-gold/20 text-angel-gold border-angel-gold/30 font-mono text-xs">
-                    {inviterWalletAddress?.slice(0, 6)}...{inviterWalletAddress?.slice(-4)}
+                    {inviteCode?.slice(0, 6)}...{inviteCode?.slice(-4)}
                   </Badge>
                 </div>
 
@@ -320,6 +395,7 @@ export default function InvitePage() {
                 <div className="space-y-3">
                   <WalletConnect 
                     onUserChange={handleUserChange}
+                    inviterWallet={inviteCode}
                   />
                   
                   {isRegistering && (

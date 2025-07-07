@@ -328,15 +328,15 @@ export default function TestInvitePage() {
                               {invitation.status}
                             </Badge>
                             <span className="text-xs text-muted-foreground">
-                              {new Date(invitation.created_at).toLocaleDateString()}
+                              {invitation.created_at ? new Date(invitation.created_at).toLocaleDateString() : '未知日期'}
                             </span>
                           </div>
                           <p className="font-mono text-xs break-all mb-1">
-                            邀请人: {invitation.inviter_wallet_address}
+                            邀请人: {invitation.inviter_id}
                           </p>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span>奖励: {invitation.reward_amount} ANGEL</span>
-                            <span>等级: L{invitation.level}</span>
+                            <span>状态: {invitation.status}</span>
                           </div>
                         </div>
                       ))}

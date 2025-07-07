@@ -41,8 +41,11 @@ export default function TestInviteNewPage() {
 
   useEffect(() => {
     if (user) {
-      const link = generateInviteLink()
-      setInviteLink(link)
+      const fetchInviteLink = async () => {
+        const link = await generateInviteLink(user.wallet_address)
+        setInviteLink(link)
+      }
+      fetchInviteLink()
     }
   }, [user, generateInviteLink])
 
@@ -153,11 +156,11 @@ export default function TestInviteNewPage() {
                 </div>
                 <div>
                   <Label className="text-sm text-muted-foreground">ANGEL余额</Label>
-                  <p className="text-lg font-semibold">{user.angel_balance.toLocaleString()}</p>
+                  <p className="text-lg font-semibold">{user.angel_balance?.toLocaleString() || 0}</p>
                 </div>
                 <div>
                   <Label className="text-sm text-muted-foreground">成功邀请</Label>
-                  <p className="text-lg font-semibold">{user.total_referrals}</p>
+                  <p className="text-lg font-semibold">{user.invites_count || 0}</p>
                 </div>
               </div>
             </CardContent>

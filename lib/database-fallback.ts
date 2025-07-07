@@ -36,7 +36,7 @@ class LocalStorageDB {
         avatar_url: userData.avatar_url || '',
         angel_balance: REWARD_CONFIG.WELCOME_BONUS,
         referred_by: userData.referred_by || '',
-        total_referrals: 0,
+        invites_count: 0,
         total_earned: REWARD_CONFIG.WELCOME_BONUS,
         level: 1,
         is_active: true,
@@ -92,7 +92,10 @@ class LocalStorageDB {
   async getInvitationsByInviterWallet(inviterWallet: string): Promise<Invitation[]> {
     try {
       const invitations = this.getItem<Invitation[]>('invitations') || [];
-      return invitations.filter(i => i.inviter_wallet_address === inviterWallet.toLowerCase());
+      const user = await this.getUserByWalletAddress(inviterWallet);
+      if (!user) return [];
+      
+      return invitations.filter(i => i.inviter_id === user.id);
     } catch (error) {
       console.error('获取邀请列表失败:', error);
       return [];

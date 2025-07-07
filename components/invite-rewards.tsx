@@ -66,19 +66,17 @@ export function InviteRewards() {
       }
       
       inviteData.forEach(invite => {
-        // 根据等级统计
-        if (invite.level === 1) newStats.level1Count++
-        else if (invite.level === 2) newStats.level2Count++
-        else if (invite.level === 3) newStats.level3Count++
+        // 简单处理：所有邀请都算作一级邀请
+        newStats.level1Count++;
         
         // 统计奖励
         if (invite.status === 'accepted') {
-          newStats.totalRewards += invite.reward_amount
-          if (invite.reward_claimed) {
-            newStats.claimedRewards += invite.reward_amount
-          } else {
-            newStats.pendingRewards += invite.reward_amount
-          }
+          newStats.totalRewards += invite.reward_amount || 0;
+          // 简化处理：所有接受的邀请都算作已领取
+          newStats.claimedRewards += invite.reward_amount || 0;
+        } else {
+          // 未接受的邀请算作待领取
+          newStats.pendingRewards += invite.reward_amount || 0;
         }
       })
       
@@ -272,17 +270,17 @@ export function InviteRewards() {
                     invite.status === 'accepted' ? 'bg-green-500' : 'bg-gray-400'
                   }`} />
                   <span className="text-sm text-gray-600">
-                    L{invite.level} · {new Date(invite.created_at).toLocaleDateString()}
+                    邀请 · {invite.created_at ? new Date(invite.created_at).toLocaleDateString() : '未知日期'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">
-                    +{invite.reward_amount} ANGEL
+                    +{invite.reward_amount || 0} ANGEL
                   </span>
-                  {invite.reward_claimed ? (
-                    <Badge variant="secondary" className="text-xs">已领取</Badge>
+                  {invite.status === 'accepted' ? (
+                    <Badge variant="secondary" className="text-xs">已接受</Badge>
                   ) : (
-                    <Badge variant="outline" className="text-xs">待领取</Badge>
+                    <Badge variant="outline" className="text-xs">待接受</Badge>
                   )}
                 </div>
               </div>

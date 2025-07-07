@@ -192,7 +192,7 @@ export default function ProfilePage() {
             {[
               { label: "天使代币", value: `${user.angel_balance?.toLocaleString() || 0}`, emoji: "💰" },
               { label: "总收益", value: `${user.total_earned?.toLocaleString() || 0}`, emoji: "🎯" },
-              { label: "推荐数", value: user.total_referrals?.toString() || "0", emoji: "👥" },
+              { label: "推荐数", value: user.invites_count?.toString() || "0", emoji: "👥" },
               { label: "等级", value: `L${user.level || 1}`, emoji: "🏆" },
             ].map((stat, index) => (
               <div key={index} className="text-center p-3 bg-white/50 rounded-lg">
@@ -311,7 +311,7 @@ export default function ProfilePage() {
                               {invitation.status}
                             </Badge>
                             <span className="text-sm text-gray-600">
-                              {new Date(invitation.created_at).toLocaleDateString()}
+                              {invitation.created_at ? new Date(invitation.created_at).toLocaleDateString() : '未知日期'}
                             </span>
                           </div>
                           <span className="text-sm font-medium text-gray-800">

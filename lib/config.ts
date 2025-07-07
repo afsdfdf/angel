@@ -2,26 +2,26 @@
 export const config = {
   // 数据库配置
   supabase: {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    url: 'https://onfplwhsmtvmkssyisot.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZnBsd2hzbXR2bWtzc3lpc290Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0NjM3NzksImV4cCI6MjA2MjAzOTc3OX0.HwC1mqTWDtwOCDm1zufyyA9Xrg2pgVOElxx2JX9z9Bs',
+    serviceRoleKey: '',
   },
   
   // 钱包连接配置
   walletConnect: {
-    projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '',
+    projectId: 'c1330fe25daa5b2a1a0b72864e762d7f',
   },
   
   // NextAuth配置
   nextAuth: {
-    url: process.env.NEXTAUTH_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://www.angelcoin.app'),
-    secret: process.env.NEXTAUTH_SECRET || 'your-secret-key',
+    url: typeof window !== 'undefined' ? window.location.origin : 'https://www.angelcoin.app',
+    secret: 'angel-crypto-app-secret-key',
   },
   
   // 应用配置
   app: {
-    name: process.env.NEXT_PUBLIC_APP_NAME || 'Angel Crypto App',
-    url: process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://www.angelcoin.app'),
+    name: 'Angel Crypto App',
+    url: typeof window !== 'undefined' ? window.location.origin : 'https://www.angelcoin.app',
   },
   
   // 支持的区块链网络

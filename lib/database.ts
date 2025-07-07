@@ -162,7 +162,9 @@ export interface UserSession {
   created_at: string;
 }
 
-// 在类型定义部分添加一个辅助函数，用于安全的类型转换
+// 先定义一些类型安全的辅助函数，用于确保对象符合User接口要求
+
+// 增强ensureUser函数以提供更好的类型安全
 function ensureUser(data: any): User | null {
   if (!data) return null;
   
@@ -172,7 +174,25 @@ function ensureUser(data: any): User | null {
     return null;
   }
   
-  return data as User;
+  // 构造一个规范的User对象
+  const user: User = {
+    id: data.id,
+    wallet_address: data.wallet_address,
+    email: data.email || undefined,
+    username: data.username || undefined,
+    avatar_url: data.avatar_url || undefined,
+    referred_by: data.referred_by || undefined,
+    invites_count: safeNumber(data.invites_count),
+    angel_balance: safeNumber(data.angel_balance),
+    total_earned: safeNumber(data.total_earned),
+    level: safeNumber(data.level),
+    is_active: typeof data.is_active === 'boolean' ? data.is_active : true,
+    is_admin: typeof data.is_admin === 'boolean' ? data.is_admin : false,
+    created_at: data.created_at || new Date().toISOString(),
+    updated_at: data.updated_at || new Date().toISOString(),
+  };
+  
+  return user;
 }
 
 function ensureUserArray(data: any[]): User[] {
@@ -183,6 +203,7 @@ function ensureUserArray(data: any[]): User[] {
   ) as User[];
 }
 
+// 增强ensureInvitation函数以提供更好的类型安全
 function ensureInvitation(data: any): Invitation | null {
   if (!data) return null;
   
@@ -196,7 +217,19 @@ function ensureInvitation(data: any): Invitation | null {
     return null;
   }
   
-  return data as Invitation;
+  // 构造一个规范的Invitation对象
+  const invitation: Invitation = {
+    id: data.id,
+    inviter_id: data.inviter_id,
+    invitee_id: data.invitee_id,
+    invite_code: data.invite_code,
+    status: data.status,
+    reward_amount: safeNumber(data.reward_amount),
+    created_at: data.created_at || undefined,
+    updated_at: data.updated_at || undefined
+  };
+  
+  return invitation;
 }
 
 function ensureInvitationArray(data: any[]): Invitation[] {
@@ -237,6 +270,16 @@ function ensureUserSession(data: any): UserSession | null {
   }
   
   return data as UserSession;
+}
+
+// 增强safeNumber函数以确保类型安全
+function safeNumber(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
 }
 
 // 主数据库服务类
@@ -374,7 +417,9 @@ export class DatabaseService {
       console.log('✅ 用户创建成功:', data);
 
       // 发放欢迎奖励记录
-      await this.recordWelcomeReward(data.id);
+      if (data && data.id && typeof data.id === 'string') {
+        await this.recordWelcomeReward(data.id);
+      }
 
       return data;
     } catch (error: any) {
@@ -520,7 +565,7 @@ export class DatabaseService {
 
       // 先检查两个钱包地址是否存在于用户表中
       console.log('🔍 检查新用户是否存在...');
-      const { data: newUserData, error: newUserError } = await supabase
+      const { data: newUserRaw, error: newUserError } = await supabase
         .from('users')
         .select('id, wallet_address')
         .eq('wallet_address', normalizedNewUserWallet)
@@ -531,17 +576,17 @@ export class DatabaseService {
         return false;
       }
       
-      if (!newUserData) {
+      if (!newUserRaw) {
         console.error('❌ 新用户不存在:', normalizedNewUserWallet);
         return false;
       }
       
-      console.log('✅ 新用户存在:', newUserData);
+      console.log('✅ 新用户存在:', newUserRaw);
       
       console.log('🔍 检查邀请人是否存在...');
-      const { data: inviterData, error: inviterError } = await supabase
+      const { data: inviterRaw, error: inviterError } = await supabase
         .from('users')
-        .select('id, wallet_address, invites_count') // 修改这里，用invites_count替换total_referrals
+        .select('id, wallet_address, invites_count')
         .eq('wallet_address', normalizedInviterWallet)
         .single();
       
@@ -550,20 +595,20 @@ export class DatabaseService {
         return false;
       }
       
-      if (!inviterData) {
+      if (!inviterRaw) {
         console.error('❌ 邀请人不存在:', normalizedInviterWallet);
         return false;
       }
       
-      console.log('✅ 邀请人存在:', inviterData);
+      console.log('✅ 邀请人存在:', inviterRaw);
 
       // 检查是否已经处理过这个邀请
       console.log('🔍 检查是否已处理过此邀请...');
       const { data: existingInvite, error: existingError } = await supabase
         .from('invitations')
         .select('id')
-        .eq('inviter_id', inviterData.id)
-        .eq('invitee_id', newUserData.id)
+        .eq('inviter_id', inviterRaw.id)
+        .eq('invitee_id', newUserRaw.id)
         .maybeSingle();
       
       if (existingError) {
@@ -584,8 +629,8 @@ export class DatabaseService {
         .from('invitations')
         .insert([
           {
-            inviter_id: inviterData.id,
-            invitee_id: newUserData.id,
+            inviter_id: inviterRaw.id,
+            invitee_id: newUserRaw.id,
             invite_code: inviteCode,
             status: 'accepted',
             reward_amount: REWARD_CONFIG.REFERRAL_L1,
@@ -608,7 +653,7 @@ export class DatabaseService {
         const { data: currentInviter, error: fetchError } = await supabase
           .from('users')
           .select('invites_count')
-          .eq('id', inviterData.id)
+          .eq('id', inviterRaw.id)
           .single();
         
         if (fetchError) {
@@ -623,7 +668,7 @@ export class DatabaseService {
         const { error: updateError } = await supabase
           .from('users')
           .update({ invites_count: newCount })
-          .eq('id', inviterData.id);
+          .eq('id', inviterRaw.id);
         
         if (updateError) {
           console.error('❌ 更新邀请计数失败:', updateError);
@@ -644,12 +689,12 @@ export class DatabaseService {
           .from('reward_records')
           .insert([
             {
-              user_id: inviterData.id,
-              reward_type: 'referral_l1',
+              user_id: String(inviterRaw.id),
+              reward_type: 'referral_l1' as const,
               amount: REWARD_CONFIG.REFERRAL_L1,
               description: `邀请奖励 L1 - 成功邀请用户 ${newUserWallet}`,
-              related_user_id: newUserData.id,
-              status: 'completed',
+              related_user_id: String(newUserRaw.id),
+              status: 'completed' as const,
               created_at: new Date().toISOString(),
               completed_at: new Date().toISOString()
             }
@@ -660,24 +705,33 @@ export class DatabaseService {
           return false;
         }
         
-        // 更新邀请人的余额
+        // 更新邀请人的余额 - 不使用RPC函数，直接获取当前值并更新
+        const { data: balanceData, error: fetchBalanceError } = await supabase
+          .from('users')
+          .select('angel_balance, total_earned')
+          .eq('id', String(inviterRaw.id))
+          .single();
+        
+        if (fetchBalanceError) {
+          console.error('❌ 获取余额信息失败:', fetchBalanceError);
+          return false;
+        }
+        
+        // 安全地处理数值，确保是数字类型
+        const currentBalance = safeNumber(balanceData?.angel_balance);
+        const currentTotalEarned = safeNumber(balanceData?.total_earned);
+        
+        // 计算新值并更新
+        const newBalance = currentBalance + REWARD_CONFIG.REFERRAL_L1;
+        const newTotalEarned = currentTotalEarned + REWARD_CONFIG.REFERRAL_L1;
+        
         const { error: balanceError } = await supabase
           .from('users')
           .update({ 
-            angel_balance: supabase.rpc('increment_safely', { 
-              row_id: inviterData.id,
-              table_name: 'users', 
-              column_name: 'angel_balance',
-              amount: REWARD_CONFIG.REFERRAL_L1
-            }),
-            total_earned: supabase.rpc('increment_safely', { 
-              row_id: inviterData.id,
-              table_name: 'users', 
-              column_name: 'total_earned',
-              amount: REWARD_CONFIG.REFERRAL_L1
-            })
+            angel_balance: newBalance,
+            total_earned: newTotalEarned
           })
-          .eq('id', inviterData.id);
+          .eq('id', String(inviterRaw.id));
         
         if (balanceError) {
           console.error('❌ 更新余额失败:', balanceError);
@@ -706,44 +760,63 @@ export class DatabaseService {
         return false;
       }
 
-      // 确保钱包地址为小写
-      const normalizedNewUserWallet = newUserWallet.toLowerCase();
-      const normalizedInviterWallet = inviterWallet.toLowerCase();
-
-      console.log('🔄 开始直接插入邀请记录:', {
-        newUserWallet: normalizedNewUserWallet,
-        inviterWallet: normalizedInviterWallet
-      });
-
-      // 获取用户ID
-      const { data: newUserData, error: newUserError } = await supabase
+      // 先检查两个钱包地址是否存在于用户表中
+      console.log('🔍 检查新用户是否存在...');
+      const { data: newUserRaw, error: newUserError } = await supabase
         .from('users')
-        .select('id')
-        .eq('wallet_address', normalizedNewUserWallet)
+        .select('id, wallet_address')
+        .eq('wallet_address', newUserWallet.toLowerCase())
         .single();
       
-      if (newUserError || !newUserData) {
-        console.error('❌ 获取新用户ID失败:', newUserError || '用户不存在');
+      if (newUserError) {
+        console.error('❌ 查询新用户失败:', newUserError);
         return false;
       }
-
-      const { data: inviterData, error: inviterError } = await supabase
+      
+      if (!newUserRaw) {
+        console.error('❌ 新用户不存在:', newUserWallet);
+        return false;
+      }
+      
+      // 使用类型断言确保数据符合要求
+      const newUserData = {
+        id: String(newUserRaw.id),
+        wallet_address: String(newUserRaw.wallet_address)
+      };
+      
+      console.log('✅ 新用户存在:', newUserData);
+      
+      console.log('🔍 检查邀请人是否存在...');
+      const { data: inviterRaw, error: inviterError } = await supabase
         .from('users')
-        .select('id')
-        .eq('wallet_address', normalizedInviterWallet)
+        .select('id, wallet_address')
+        .eq('wallet_address', inviterWallet.toLowerCase())
         .single();
       
-      if (inviterError || !inviterData) {
-        console.error('❌ 获取邀请人ID失败:', inviterError || '邀请人不存在');
+      if (inviterError) {
+        console.error('❌ 查询邀请人失败:', inviterError);
         return false;
       }
+      
+      if (!inviterRaw) {
+        console.error('❌ 邀请人不存在:', inviterWallet);
+        return false;
+      }
+      
+      // 使用类型断言确保数据符合要求
+      const inviterData = {
+        id: String(inviterRaw.id),
+        wallet_address: String(inviterRaw.wallet_address)
+      };
+      
+      console.log('✅ 邀请人存在:', inviterData);
 
       // 检查是否已经存在邀请记录
       const { data: existingInvite } = await supabase
         .from('invitations')
         .select('id')
-        .eq('inviter_wallet_address', normalizedInviterWallet)
-        .eq('invitee_wallet_address', normalizedNewUserWallet)
+        .eq('inviter_wallet_address', inviterWallet.toLowerCase())
+        .eq('invitee_wallet_address', newUserWallet.toLowerCase())
         .single();
       
       if (existingInvite) {
@@ -757,8 +830,8 @@ export class DatabaseService {
         .insert([{
           inviter_id: inviterData.id,
           invitee_id: newUserData.id,
-          inviter_wallet_address: normalizedInviterWallet,
-          invitee_wallet_address: normalizedNewUserWallet,
+          inviter_wallet_address: inviterWallet.toLowerCase(),
+          invitee_wallet_address: newUserWallet.toLowerCase(),
           status: 'accepted',
           level: 1,
           reward_amount: 50,
@@ -798,7 +871,7 @@ export class DatabaseService {
       
       return true;
     } catch (error: any) {
-      console.error('❌ 直接插入邀请记录失败:', error);
+      console.error('❌ 直接插入邀请异常:', error);
       return false;
     }
   }
@@ -1133,16 +1206,45 @@ export class DatabaseService {
   // 获取用户的被邀请记录
   static async getUserInvitedBy(userId: string): Promise<Invitation | null> {
     try {
-      const { data, error } = await this.supabase()
+      if (!supabase) {
+        console.error('Supabase 配置未找到，请配置数据库连接');
+        return null;
+      }
+
+      // 验证参数类型
+      if (typeof userId !== 'string') {
+        console.error('getUserInvitedBy 参数错误: userId必须是字符串');
+        return null;
+      }
+
+      const { data: invitationData, error } = await supabase
         .from('invitations')
         .select('*')
         .eq('invitee_id', userId)
-        .single();
-
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
-      return data || null;
+        .maybeSingle();
+      
+      if (error) {
+        console.error('查询邀请关系失败:', error);
+        return null;
+      }
+      
+      if (!invitationData) return null;
+      
+      // 构造标准化的Invitation对象
+      const invitation: Invitation = {
+        id: String(invitationData.id),
+        inviter_id: String(invitationData.inviter_id),
+        invitee_id: String(invitationData.invitee_id),
+        invite_code: String(invitationData.invite_code),
+        status: String(invitationData.status),
+        reward_amount: safeNumber(invitationData.reward_amount),
+        created_at: invitationData.created_at ? String(invitationData.created_at) : undefined,
+        updated_at: invitationData.updated_at ? String(invitationData.updated_at) : undefined
+      };
+      
+      return invitation;
     } catch (error) {
-      console.error('获取用户被邀请记录失败:', error);
+      console.error('获取邀请关系异常:', error);
       return null;
     }
   }
@@ -1320,33 +1422,169 @@ export class DatabaseService {
   // 直接插入邀请记录 (ID版本)
   static async directInsertInvitationById(newUserWalletAddress: string, inviterId: string): Promise<boolean> {
     try {
+      if (!supabase) {
+        console.error('Supabase 配置未找到，请配置数据库连接');
+        return false;
+      }
+
+      // 检查新用户是否存在
+      console.log('🔍 通过钱包地址查找新用户...');
+      const { data: newUserData, error: newUserError } = await supabase
+        .from('users')
+        .select('id, wallet_address')
+        .eq('wallet_address', newUserWalletAddress.toLowerCase())
+        .single();
+      
+      if (newUserError) {
+        console.error('❌ 查询新用户失败:', newUserError);
+        return false;
+      }
+      
+      if (!newUserData) {
+        console.error('❌ 新用户不存在:', newUserWalletAddress);
+        return false;
+      }
+      
+      console.log('✅ 找到新用户:', newUserData);
+      
       // 检查邀请人是否存在
-      const inviter = await this.getUserById(inviterId);
-      if (!inviter) {
-        console.error('邀请人不存在');
+      console.log('🔍 通过ID查找邀请人...');
+      const { data: inviterRaw, error: inviterError } = await supabase
+        .from('users')
+        .select('id, wallet_address')
+        .eq('id', inviterId)
+        .single();
+      
+      if (inviterError) {
+        console.error('❌ 查询邀请人失败:', inviterError);
         return false;
       }
-
-      // 创建邀请记录
-      const { data, error } = await this.supabase()
+      
+      if (!inviterRaw) {
+        console.error('❌ 邀请人不存在，ID:', inviterId);
+        return false;
+      }
+      
+      // 使用类型断言确保数据符合要求
+      const inviterData = {
+        id: String(inviterRaw.id),
+        wallet_address: String(inviterRaw.wallet_address)
+      };
+      
+      console.log('✅ 找到邀请人:', inviterData);
+      
+      // 检查是否已经存在邀请记录
+      console.log('🔍 检查是否已存在邀请...');
+      const { data: existingInvite, error: existingError } = await supabase
         .from('invitations')
-        .insert([{
-          inviter_id: inviterId,
-          invitee_id: null,
-          invite_code: inviterId,
-          invitee_wallet_address: newUserWalletAddress.toLowerCase(),
-          status: 'pending',
-          created_at: new Date().toISOString(),
-        }]);
-
-      if (error) {
-        console.error('创建邀请记录失败:', error);
+        .select('id')
+        .eq('inviter_id', inviterData.id)
+        .eq('invitee_id', newUserData.id)
+        .maybeSingle();
+      
+      if (existingError) {
+        console.error('❌ 检查现有邀请失败:', existingError);
         return false;
       }
-
+      
+      if (existingInvite) {
+        console.log('⚠️ 已存在邀请记录，无需重复处理');
+        return true; // 已处理过，返回成功
+      }
+      
+      // 创建邀请记录
+      console.log('🔄 创建邀请记录...');
+      const inviteCode = crypto.randomUUID().slice(0, 8);
+      
+      const { error: insertError } = await supabase
+        .from('invitations')
+        .insert([
+          {
+            inviter_id: inviterData.id,
+            invitee_id: newUserData.id,
+            invite_code: inviteCode,
+            status: 'accepted',
+            reward_amount: REWARD_CONFIG.REFERRAL_L1,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ]);
+      
+      if (insertError) {
+        console.error('❌ 创建邀请记录失败:', insertError);
+        return false;
+      }
+      
+      console.log('✅ 创建邀请记录成功');
+      
+      // 更新邀请人的邀请计数
+      console.log('🔄 更新邀请人的邀请计数...');
+      try {
+        // 获取当前用户数据
+        const { data: currentInviterRaw, error: fetchError } = await supabase
+          .from('users')
+          .select('invites_count, angel_balance, total_earned')
+          .eq('id', String(inviterData.id))
+          .single();
+        
+        if (fetchError) {
+          console.error('❌ 获取邀请人信息失败:', fetchError);
+          return false;
+        }
+        
+        // 安全地解析当前值，确保都是数字类型
+        const currentInvitesCount = safeNumber(currentInviterRaw?.invites_count);
+        const currentBalance = safeNumber(currentInviterRaw?.angel_balance);
+        const currentTotalEarned = safeNumber(currentInviterRaw?.total_earned);
+        
+        // 计算新值（确保类型正确）
+        const newInvitesCount = currentInvitesCount + 1;
+        const newBalance = currentBalance + REWARD_CONFIG.REFERRAL_L1;
+        const newTotalEarned = currentTotalEarned + REWARD_CONFIG.REFERRAL_L1;
+        
+        // 更新用户数据
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ 
+            invites_count: newInvitesCount,
+            angel_balance: newBalance,
+            total_earned: newTotalEarned
+          })
+          .eq('id', String(inviterData.id));
+        
+        if (updateError) {
+          console.error('❌ 更新邀请人数据失败:', updateError);
+          return false;
+        }
+        
+        // 记录奖励
+        const { error: rewardError } = await supabase
+          .from('reward_records')
+          .insert([
+            {
+              user_id: String(inviterData.id),
+              reward_type: 'referral_l1' as const,
+              amount: REWARD_CONFIG.REFERRAL_L1,
+              description: `邀请奖励 L1 - 成功邀请用户 ${newUserWalletAddress}`,
+              related_user_id: String(newUserData.id),
+              status: 'completed' as const,
+              created_at: new Date().toISOString(),
+              completed_at: new Date().toISOString()
+            }
+          ]);
+        
+        if (rewardError) {
+          console.error('❌ 记录奖励失败:', rewardError);
+        }
+      } catch (error) {
+        console.error('❌ 更新邀请计数异常:', error);
+        return false;
+      }
+      
+      console.log('✅ 更新邀请计数和余额成功');
       return true;
     } catch (error) {
-      console.error('直接插入邀请记录失败:', error);
+      console.error('❌ 直接插入邀请异常:', error);
       return false;
     }
   }

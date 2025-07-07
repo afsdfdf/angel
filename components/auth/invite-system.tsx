@@ -18,6 +18,8 @@ export function InviteSystem() {
   const [isLoading, setIsLoading] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // 确保在客户端环境中运行
   useEffect(() => {
@@ -41,10 +43,31 @@ export function InviteSystem() {
   };
 
   // 生成邀请链接
-  const generateLink = () => {
-    if (!user) return;
-    const link = generateInviteLink();
-    setInviteLink(link);
+  const generateLink = async () => {
+    if (!user?.wallet_address) {
+      console.error('❌ 无法生成邀请链接：用户未登录');
+      return;
+    }
+    
+    setIsGenerating(true);
+    try {
+      console.log('🔄 生成邀请链接，用户:', user);
+      const link = await DatabaseService.generateInviteLink(user.wallet_address);
+      
+      if (!link) {
+        console.error('❌ 生成邀请链接失败');
+        setError('生成邀请链接失败，请稍后重试');
+        return;
+      }
+      
+      console.log('✅ 生成邀请链接成功:', link);
+      setInviteLink(link);
+    } catch (error) {
+      console.error('❌ 生成邀请链接异常:', error);
+      setError('生成邀请链接时发生错误');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   // 复制到剪贴板
@@ -90,7 +113,13 @@ export function InviteSystem() {
   useEffect(() => {
     if (isAuthenticated && user && isClient) {
       loadInvitations();
-      generateLink();
+      
+      // 调用异步函数
+      const loadInviteLink = async () => {
+        await generateLink();
+      };
+      
+      loadInviteLink();
     }
   }, [isAuthenticated, user, isClient]);
 
@@ -141,11 +170,11 @@ export function InviteSystem() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">成功邀请</CardTitle>
+            <CardTitle className="text-sm font-medium">邀请统计</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{user.total_referrals}</div>
+            <div className="text-2xl font-bold">{user.invites_count}</div>
             <p className="text-xs text-muted-foreground">
               已邀请的用户数量
             </p>
@@ -303,10 +332,7 @@ export function InviteSystem() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium font-mono">
-                            {invitation.invitee_wallet_address 
-                              ? `${invitation.invitee_wallet_address.slice(0, 6)}...${invitation.invitee_wallet_address.slice(-4)}`
-                              : '待接受'
-                            }
+                            {invitation.invitee_id ? `邀请ID: ${invitation.invitee_id.slice(0, 8)}` : '待接受'}
                           </span>
                           <Badge 
                             variant={invitation.status === 'accepted' ? 'default' : 'secondary'}
@@ -315,9 +341,9 @@ export function InviteSystem() {
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {invitation.accepted_at 
-                            ? `接受时间: ${new Date(invitation.accepted_at).toLocaleDateString()}`
-                            : `创建时间: ${new Date(invitation.created_at).toLocaleDateString()}`
+                          {invitation.status === 'accepted' 
+                            ? `接受时间: ${invitation.updated_at ? new Date(invitation.updated_at).toLocaleDateString() : '未知'}`
+                            : `创建时间: ${invitation.created_at ? new Date(invitation.created_at).toLocaleDateString() : '未知'}`
                           }
                         </p>
                       </div>
@@ -326,10 +352,10 @@ export function InviteSystem() {
                           +{invitation.reward_amount || 0} ANGEL
                         </div>
                         <Badge 
-                          variant={invitation.reward_claimed ? 'default' : 'outline'}
+                          variant={invitation.status === 'completed' ? 'default' : 'outline'}
                           className="text-xs"
                         >
-                          {invitation.reward_claimed ? '已领取' : '未领取'}
+                          {invitation.status === 'completed' ? '已完成' : '未完成'}
                         </Badge>
                       </div>
                     </div>

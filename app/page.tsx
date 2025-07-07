@@ -121,7 +121,7 @@ export default function HomePage() {
                   <Users className="w-6 h-6 text-white" />
                 </div>
                 <div className="text-lg font-bold text-foreground">
-                  {user?.total_referrals || 0}
+                  {user?.invites_count || 0}
                 </div>
                 <div className="text-xs text-muted-foreground">推荐好友</div>
               </div>

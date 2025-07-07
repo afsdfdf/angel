@@ -41,7 +41,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const generateInviteLink = async (walletAddress: string): Promise<string> => {
-    return await DatabaseService.generateInviteLink(walletAddress)
+    if (!walletAddress) {
+      console.error('钱包地址为空，无法生成邀请链接');
+      return '';
+    }
+    
+    try {
+      console.log('生成邀请链接，钱包地址:', walletAddress);
+      return await DatabaseService.generateInviteLink(walletAddress);
+    } catch (error) {
+      console.error('生成邀请链接失败:', error);
+      return '';
+    }
   }
 
   const value: AuthContextType = {

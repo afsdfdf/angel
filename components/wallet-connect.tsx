@@ -477,7 +477,7 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
                     </p>
                     <Badge className="bg-angel-accent/20 text-angel-accent border-angel-accent/30 text-xs">
                       <Users className="w-3 h-3 mr-1" />
-                      {user?.total_referrals || 0}人
+                      {user?.invites_count || 0}人
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground">
