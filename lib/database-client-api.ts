@@ -3,7 +3,26 @@
  * 用于从客户端组件调用服务器端数据库函数
  */
 
-import type { User, Invitation, RewardRecord } from './database-mongodb';
+import type { User } from './auth-context';
+
+// 定义客户端需要的类型，避免从服务器端导入
+export interface Invitation {
+  id?: string;
+  inviter_id: string;
+  invitee_id: string;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface RewardRecord {
+  id?: string;
+  user_id: string;
+  amount: number;
+  type: string;
+  description: string;
+  created_at: string;
+}
 
 export interface ApiResponse<T> {
   success: boolean;

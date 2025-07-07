@@ -7,10 +7,17 @@ import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/page-header"
 import { MemeBackground } from "@/components/meme-background"
 import { WalletConnect } from "@/components/wallet-connect"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth, User } from "@/lib/auth-context"
 import { DatabaseClientApi } from "@/lib/database-client-api"
-import { REWARD_CONFIG, type User } from "@/lib/database-mongodb"
 import { Gift, Users, Coins, Star, TrendingUp, AlertCircle } from "lucide-react"
+
+// 在客户端定义奖励配置
+const REWARD_CONFIG = {
+  WELCOME_BONUS: 10000,
+  REFERRAL_L1: 3000,
+  REFERRAL_L2: 1500,
+  REFERRAL_L3: 500
+};
 
 export default function InvitePage() {
   const params = useParams()

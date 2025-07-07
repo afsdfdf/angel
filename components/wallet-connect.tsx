@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Wallet, LogOut, Copy, Gift, Users, Share2, CheckCircle } from "lucide-react"
 import { DatabaseClientApi } from "@/lib/database-client-api"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth, User } from "@/lib/auth-context"
 import { useWallet } from "@/lib/wallet-context"
 
 // Define reward config directly in this client component to avoid server imports
@@ -19,7 +19,7 @@ const REWARD_CONFIG = {
 };
 
 interface WalletConnectProps {
-  onUserChange?: (user: any | null) => void
+  onUserChange?: (user: User | null) => void
   inviterWallet?: string // 邀请人钱包地址
 }
 
