@@ -245,6 +245,20 @@ export async function createUser(userData: Partial<User>): Promise<User | null> 
  */
 export async function processInviteRegistration(newUserWallet: string, inviterWallet: string): Promise<boolean> {
   try {
+    console.log('🔄 处理邀请注册开始:', { newUserWallet, inviterWallet });
+    
+    // 检查参数
+    if (!newUserWallet || !inviterWallet) {
+      console.error('❌ 邀请处理失败: 缺少必需参数');
+      return false;
+    }
+    
+    // 检查是否为同一个钱包地址
+    if (newUserWallet.toLowerCase() === inviterWallet.toLowerCase()) {
+      console.error('❌ 邀请处理失败: 不能邀请自己');
+      return false;
+    }
+    
     const { db } = await connectToDatabase();
     
     // 确保钱包地址为小写
@@ -254,16 +268,29 @@ export async function processInviteRegistration(newUserWallet: string, inviterWa
     // 获取邀请人
     const inviter = await getUserByWalletAddress(normalizedInviterWallet);
     if (!inviter || !inviter.id) {
-      console.error('邀请人不存在');
+      console.error('❌ 邀请处理失败: 邀请人不存在');
       return false;
     }
+    
+    console.log('✅ 找到邀请人:', { 
+      id: inviter.id,
+      wallet: inviter.wallet_address,
+      balance: inviter.angel_balance,
+      invites_count: inviter.invites_count
+    });
     
     // 获取新用户
     const newUser = await getUserByWalletAddress(normalizedNewUserWallet);
     if (!newUser || !newUser.id) {
-      console.error('新用户不存在');
+      console.error('❌ 邀请处理失败: 新用户不存在');
       return false;
     }
+    
+    console.log('✅ 找到新用户:', { 
+      id: newUser.id,
+      wallet: newUser.wallet_address,
+      referred_by: newUser.referred_by
+    });
     
     // 检查邀请记录是否已存在
     const existingInvitation = await db.collection('invitations').findOne({
@@ -272,14 +299,20 @@ export async function processInviteRegistration(newUserWallet: string, inviterWa
     });
     
     if (existingInvitation) {
-      console.log('邀请记录已存在');
+      console.log('⚠️ 邀请记录已存在:', existingInvitation);
       return true;
     }
     
     const now = new Date().toISOString();
     
     // 更新新用户的 referred_by 字段
-    await db.collection('users').updateOne(
+    console.log('🔄 更新新用户的 referred_by 字段:', {
+      userId: newUser.id,
+      oldReferredBy: newUser.referred_by,
+      newReferredBy: inviter.id
+    });
+    
+    const updateUserResult = await db.collection('users').updateOne(
       { _id: new ObjectId(newUser.id) },
       { 
         $set: { 
@@ -288,6 +321,11 @@ export async function processInviteRegistration(newUserWallet: string, inviterWa
         }
       }
     );
+    
+    console.log('✅ 更新用户结果:', {
+      matched: updateUserResult.matchedCount,
+      modified: updateUserResult.modifiedCount
+    });
     
     // 创建邀请记录
     const invitation: Invitation = {
@@ -303,16 +341,28 @@ export async function processInviteRegistration(newUserWallet: string, inviterWa
       accepted_at: now
     };
     
+    console.log('🔄 创建邀请记录:', invitation);
+    
     const inviteResult = await db.collection('invitations').insertOne(invitation);
     
     if (!inviteResult.acknowledged) {
+      console.error('❌ 创建邀请记录失败');
       throw new Error('创建邀请记录失败');
     }
+    
+    console.log('✅ 创建邀请记录成功:', { id: inviteResult.insertedId.toString() });
     
     const invitationId = inviteResult.insertedId.toString();
     
     // 更新邀请人的邀请计数和奖励
-    await db.collection('users').updateOne(
+    console.log('🔄 更新邀请人的邀请计数和奖励:', {
+      inviterId: inviter.id,
+      oldBalance: inviter.angel_balance,
+      oldInvitesCount: inviter.invites_count,
+      rewardAmount: REWARD_CONFIG.REFERRAL_L1
+    });
+    
+    const updateInviterResult = await db.collection('users').updateOne(
       { _id: new ObjectId(inviter.id) },
       { 
         $inc: { 
@@ -324,8 +374,15 @@ export async function processInviteRegistration(newUserWallet: string, inviterWa
       }
     );
     
+    console.log('✅ 更新邀请人结果:', {
+      matched: updateInviterResult.matchedCount,
+      modified: updateInviterResult.modifiedCount
+    });
+    
     // 创建奖励记录
-    await createRewardRecord({
+    console.log('🔄 创建邀请奖励记录');
+    
+    const rewardRecordId = await createRewardRecord({
       user_id: inviter.id,
       reward_type: 'referral_l1',
       amount: REWARD_CONFIG.REFERRAL_L1,
@@ -336,15 +393,25 @@ export async function processInviteRegistration(newUserWallet: string, inviterWa
       created_at: now
     });
     
+    console.log('✅ 创建奖励记录成功:', { id: rewardRecordId });
+    
     // 处理二级邀请奖励（如果有）
     if (inviter.referred_by) {
+      console.log('🔄 处理二级邀请奖励:', { l2InviterId: inviter.referred_by });
+      
       const l2Inviter = await db.collection('users').findOne({ 
         _id: new ObjectId(inviter.referred_by) 
       });
       
       if (l2Inviter) {
+        console.log('✅ 找到二级邀请人:', { 
+          id: l2Inviter._id,
+          wallet: l2Inviter.wallet_address,
+          balance: l2Inviter.angel_balance
+        });
+        
         // 更新二级邀请人奖励
-        await db.collection('users').updateOne(
+        const updateL2Result = await db.collection('users').updateOne(
           { _id: new ObjectId(l2Inviter._id) },
           { 
             $inc: { 
@@ -355,8 +422,13 @@ export async function processInviteRegistration(newUserWallet: string, inviterWa
           }
         );
         
+        console.log('✅ 更新二级邀请人结果:', {
+          matched: updateL2Result.matchedCount,
+          modified: updateL2Result.modifiedCount
+        });
+        
         // 创建二级奖励记录
-        await createRewardRecord({
+        const l2RewardId = await createRewardRecord({
           user_id: l2Inviter._id.toString(),
           reward_type: 'referral_l2',
           amount: REWARD_CONFIG.REFERRAL_L2,
@@ -367,15 +439,25 @@ export async function processInviteRegistration(newUserWallet: string, inviterWa
           created_at: now
         });
         
+        console.log('✅ 创建二级奖励记录成功:', { id: l2RewardId });
+        
         // 处理三级邀请奖励（如果有）
         if (l2Inviter.referred_by) {
+          console.log('🔄 处理三级邀请奖励:', { l3InviterId: l2Inviter.referred_by });
+          
           const l3Inviter = await db.collection('users').findOne({ 
             _id: new ObjectId(l2Inviter.referred_by) 
           });
           
           if (l3Inviter) {
+            console.log('✅ 找到三级邀请人:', { 
+              id: l3Inviter._id,
+              wallet: l3Inviter.wallet_address,
+              balance: l3Inviter.angel_balance
+            });
+            
             // 更新三级邀请人奖励
-            await db.collection('users').updateOne(
+            const updateL3Result = await db.collection('users').updateOne(
               { _id: new ObjectId(l3Inviter._id) },
               { 
                 $inc: { 
@@ -386,8 +468,13 @@ export async function processInviteRegistration(newUserWallet: string, inviterWa
               }
             );
             
+            console.log('✅ 更新三级邀请人结果:', {
+              matched: updateL3Result.matchedCount,
+              modified: updateL3Result.modifiedCount
+            });
+            
             // 创建三级奖励记录
-            await createRewardRecord({
+            const l3RewardId = await createRewardRecord({
               user_id: l3Inviter._id.toString(),
               reward_type: 'referral_l3',
               amount: REWARD_CONFIG.REFERRAL_L3,
@@ -397,14 +484,17 @@ export async function processInviteRegistration(newUserWallet: string, inviterWa
               status: 'completed',
               created_at: now
             });
+            
+            console.log('✅ 创建三级奖励记录成功:', { id: l3RewardId });
           }
         }
       }
     }
     
+    console.log('✅ 邀请处理完成');
     return true;
   } catch (error) {
-    console.error('处理邀请异常:', error);
+    console.error('❌ 处理邀请异常:', error);
     return false;
   }
 }
