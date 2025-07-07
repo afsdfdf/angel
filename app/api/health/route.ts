@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { DatabaseService } from '@/lib/database-mongodb';
+import { isHealthy } from '@/lib/database-mongodb';
 
 export async function GET() {
   try {
-    const isHealthy = await DatabaseService.isHealthy();
+    const healthy = await isHealthy();
     
-    if (isHealthy) {
+    if (healthy) {
       return NextResponse.json({
         success: true,
         message: 'Database connection is healthy',

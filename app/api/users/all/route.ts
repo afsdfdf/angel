@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { DatabaseService } from '@/lib/database-mongodb';
+import { getAllUsers } from '@/lib/database-mongodb';
 
 /**
  * 获取所有用户API
  */
 export async function GET() {
   try {
-    const users = await DatabaseService.getAllUsers();
+    const users = await getAllUsers();
     
     return NextResponse.json({
       success: true,

@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseService } from '@/lib/database-mongodb';
+import { NextResponse } from 'next/server';
+import { isUserExists } from '@/lib/database-mongodb';
 
 /**
  * 检查用户是否存在API
  */
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const wallet = searchParams.get('wallet');
@@ -12,18 +12,18 @@ export async function GET(request: NextRequest) {
     if (!wallet) {
       return NextResponse.json({
         success: false,
-        error: 'Missing wallet address parameter'
+        error: 'Wallet address is required'
       }, { status: 400 });
     }
     
-    const exists = await DatabaseService.isUserExists(wallet);
+    const exists = await isUserExists(wallet);
     
     return NextResponse.json({
       success: true,
       data: exists
     });
   } catch (error) {
-    console.error('检查用户是否存在失败:', error);
+    console.error('Error checking if user exists:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : String(error)

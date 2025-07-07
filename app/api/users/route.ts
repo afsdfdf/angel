@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseService } from '@/lib/database-mongodb';
+import { getUserByWalletAddress, createUser, updateUser } from '@/lib/database-mongodb';
 
 /**
  * 通过钱包地址获取用户
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
     
-    const user = await DatabaseService.getUserByWalletAddress(wallet);
+    const user = await getUserByWalletAddress(wallet);
     
     if (!user) {
       return NextResponse.json({
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    const user = await DatabaseService.createUser(userData);
+    const user = await createUser(userData);
     
     if (!user) {
       return NextResponse.json({
@@ -100,7 +100,7 @@ export async function PATCH(request: NextRequest) {
     delete updates.id; // 不允许更新ID
     
     // 更新用户
-    const updatedUser = await DatabaseService.updateUser(id, updates);
+    const updatedUser = await updateUser(id, updates);
     
     if (!updatedUser) {
       return NextResponse.json(

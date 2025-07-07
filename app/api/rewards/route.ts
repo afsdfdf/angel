@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseService } from '@/lib/database-mongodb';
+import { getUserRewards } from '@/lib/database-mongodb';
 
 /**
  * 获取用户奖励记录API
@@ -16,14 +16,14 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
     
-    const rewards = await DatabaseService.getUserRewards(userId);
+    const rewards = await getUserRewards(userId);
     
     return NextResponse.json({
       success: true,
       data: rewards
     });
   } catch (error) {
-    console.error('获取用户奖励记录失败:', error);
+    console.error('获取奖励记录失败:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : String(error)

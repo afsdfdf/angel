@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseService } from '@/lib/database-mongodb';
+import { processInviteRegistration } from '@/lib/database-mongodb';
 
 /**
- * 处理邀请注册
+ * 处理邀请注册API
  */
 export async function POST(request: NextRequest) {
   try {
@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    const result = await DatabaseService.processInviteRegistration(
-      newUserWallet,
-      inviterWallet
+    const result = await processInviteRegistration(
+      newUserWallet.toLowerCase(),
+      inviterWallet.toLowerCase()
     );
     
     return NextResponse.json({

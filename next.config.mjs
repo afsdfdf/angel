@@ -1,11 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    serverComponentsExternalPackages: ['mongodb'],
-    esmExternals: 'loose',
-  },
-  serverExternalPackages: ['mongodb', 'mongoose'],
+  serverExternalPackages: ['mongodb'],
   typescript: {
     // 忽略TypeScript错误，在生产构建中不进行类型检查
     ignoreBuildErrors: true,
@@ -13,7 +9,6 @@ const nextConfig = {
   // 排除测试页面，只处理这些文件类型
   pageExtensions: ['js', 'jsx', 'ts', 'tsx'],
   
-  excludeDefaultMomentLocales: true,
   eslint: {
     // 生产构建时忽略ESLint错误
     ignoreDuringBuilds: true,

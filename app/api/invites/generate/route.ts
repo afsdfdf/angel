@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseService } from '@/lib/database-mongodb';
+import { generateInviteLink } from '@/lib/database-mongodb';
 
 /**
  * 生成邀请链接API
@@ -12,11 +12,11 @@ export async function GET(request: NextRequest) {
     if (!wallet) {
       return NextResponse.json({
         success: false,
-        error: 'Missing wallet address parameter'
+        error: 'Missing wallet parameter'
       }, { status: 400 });
     }
     
-    const inviteLink = await DatabaseService.generateInviteLink(wallet);
+    const inviteLink = await generateInviteLink(wallet);
     
     return NextResponse.json({
       success: true,

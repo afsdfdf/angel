@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseService } from '@/lib/database-mongodb';
+import { getUserInvitations } from '@/lib/database-mongodb';
 
 /**
- * 获取用户邀请记录
+ * 获取用户邀请记录API
  */
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
     
-    const invitations = await DatabaseService.getUserInvitations(userId);
+    const invitations = await getUserInvitations(userId);
     
     return NextResponse.json({
       success: true,

@@ -1,5 +1,3 @@
-'use server'
-
 // @ts-nocheck
 
 /**
