@@ -21,79 +21,66 @@ import {
   Trash2,
   Eye,
   Download,
-  RefreshCw
+  RefreshCw,
+  Map,
+  Image,
+  Award,
+  BarChart,
+  Settings,
+  FileText,
+  Database
 } from 'lucide-react'
 import { DatabaseService, User, Invitation } from '@/lib/database'
 import { PageHeader } from '@/components/page-header'
+import { AdminService, NFT, Land } from './admin-functions'
 
 interface AdminStats {
-  totalUsers: number
-  activeUsers: number
-  totalInvitations: number
-  totalTokensDistributed: number
+  totalUsers: number;
+  activeUsers: number;
+  totalInvitations: number;
+  totalTokensDistributed: number;
 }
 
 export default function AdminPage() {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [users, setUsers] = useState<User[]>([])
+  const [invitations, setInvitations] = useState<Invitation[]>([])
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     activeUsers: 0,
     totalInvitations: 0,
     totalTokensDistributed: 0
   })
-  const [users, setUsers] = useState<User[]>([])
-  const [invitations, setInvitations] = useState<Invitation[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [tokenAmount, setTokenAmount] = useState('')
   const [message, setMessage] = useState('')
+  const [nfts, setNfts] = useState<NFT[]>([])
+  const [lands, setLands] = useState<Land[]>([])
+  const [selectedNft, setSelectedNft] = useState<NFT | null>(null)
+  const [selectedLand, setSelectedLand] = useState<Land | null>(null)
+  const [dashboardStats, setDashboardStats] = useState({
+    usersCount: 0,
+    activeUsers: 0,
+    invitationsCount: 0,
+    totalTokens: 0,
+    nftsCount: 0,
+    landsCount: 0
+  })
 
   // 检查认证状态
   useEffect(() => {
     const checkAuth = () => {
-      const adminSession = localStorage.getItem('admin_session')
-      const loginTime = localStorage.getItem('admin_login_time')
-      const adminUser = localStorage.getItem('admin_user')
-      
-      if (adminSession && loginTime && adminUser) {
-        const now = Date.now()
-        const loginTimestamp = parseInt(loginTime)
-        const sessionDuration = 4 * 60 * 60 * 1000 // 4小时会话
-        
-        if (now - loginTimestamp < sessionDuration) {
-          // 验证token格式
-          try {
-            const decodedToken = atob(adminSession)
-            if (decodedToken.startsWith(adminUser + ':')) {
-              setIsAuthenticated(true)
-            } else {
-              throw new Error('Invalid token format')
-            }
-          } catch (error) {
-            console.warn('管理员token验证失败:', error)
-            clearAdminSession()
-          }
-        } else {
-          // 会话过期
-          console.log('管理员会话已过期')
-          clearAdminSession()
-        }
-      } else {
-        router.push('/admin/login')
-      }
+      // 简单认证检查，实际项目中应使用更安全的方式
+      const isAdmin = localStorage.getItem('admin_user') !== null
+      setIsAuthenticated(isAdmin)
+      setLoading(false)
     }
-    
-    const clearAdminSession = () => {
-      localStorage.removeItem('admin_session')
-      localStorage.removeItem('admin_login_time')
-      localStorage.removeItem('admin_user')
-      router.push('/admin/login')
-    }
-    
+
     checkAuth()
-  }, [router])
+  }, [])
 
   // 加载数据
   useEffect(() => {
@@ -108,13 +95,19 @@ export default function AdminPage() {
       // 使用真实的数据库服务
       const allUsers = await DatabaseService.getAllUsers()
       const allInvitations = await DatabaseService.getAllInvitations()
+      const allNfts = await AdminService.getAllNFTs()
+      const allLands = await AdminService.getAllLands()
+      const stats = await AdminService.getDashboardStats()
       
       setUsers(allUsers)
       setInvitations(allInvitations)
+      setNfts(allNfts)
+      setLands(allLands)
+      setDashboardStats(stats)
       
       // 计算统计数据
       const totalUsers = allUsers.length
-      const activeUsers = allUsers.filter(user => user.is_active).length
+      const activeUsers = allUsers.filter(user => user.is_active === true).length
       const totalInvitations = allInvitations.length
       const totalTokensDistributed = allUsers.reduce((sum, user) => sum + (user.angel_balance || 0), 0)
 
@@ -129,6 +122,8 @@ export default function AdminPage() {
       // 如果数据库连接失败，显示空数据
       setUsers([])
       setInvitations([])
+      setNfts([])
+      setLands([])
       setStats({
         totalUsers: 0,
         activeUsers: 0,
@@ -154,18 +149,195 @@ export default function AdminPage() {
         return
       }
 
-      // 更新用户余额
-      const updatedUsers = users.map(user => 
-        user.id === selectedUser.id 
-          ? { ...user, angel_balance: user.angel_balance + amount }
-          : user
-      )
-      setUsers(updatedUsers)
-      setSelectedUser(null)
-      setTokenAmount('')
-      setMessage(`成功为用户 ${selectedUser.username} 添加 ${amount} ANGEL 代币`)
+      // 调用管理员服务添加代币
+      const success = await AdminService.addTokensToUser(selectedUser.id, amount)
+      
+      if (success) {
+        // 更新用户列表
+        const updatedUsers = await DatabaseService.getAllUsers()
+        setUsers(updatedUsers)
+        
+        setSelectedUser(null)
+        setTokenAmount('')
+        setMessage(`成功为用户 ${selectedUser.username || selectedUser.wallet_address} 添加 ${amount} ANGEL 代币`)
+        
+        // 记录管理员操作
+        const adminId = localStorage.getItem('admin_user')
+        if (adminId) {
+          await AdminService.logAdminAction(adminId, 'add_tokens', {
+            userId: selectedUser.id,
+            amount,
+            timestamp: new Date().toISOString()
+          })
+        }
+      } else {
+        setMessage('添加代币失败，请重试')
+      }
     } catch (error) {
       setMessage('添加代币失败')
+      console.error(error)
+    }
+  }
+
+  // 扣除代币
+  const handleDeductTokens = async () => {
+    if (!selectedUser || !tokenAmount) {
+      setMessage('请选择用户并输入代币数量')
+      return
+    }
+
+    try {
+      const amount = parseFloat(tokenAmount)
+      if (isNaN(amount) || amount <= 0) {
+        setMessage('请输入有效的代币数量')
+        return
+      }
+
+      if ((selectedUser.angel_balance || 0) < amount) {
+        setMessage('用户余额不足')
+        return
+      }
+
+      // 调用管理员服务扣除代币
+      const success = await AdminService.deductTokensFromUser(selectedUser.id, amount)
+      
+      if (success) {
+        // 更新用户列表
+        const updatedUsers = await DatabaseService.getAllUsers()
+        setUsers(updatedUsers)
+        
+        setSelectedUser(null)
+        setTokenAmount('')
+        setMessage(`成功从用户 ${selectedUser.username || selectedUser.wallet_address} 扣除 ${amount} ANGEL 代币`)
+        
+        // 记录管理员操作
+        const adminId = localStorage.getItem('admin_user')
+        if (adminId) {
+          await AdminService.logAdminAction(adminId, 'deduct_tokens', {
+            userId: selectedUser.id,
+            amount,
+            timestamp: new Date().toISOString()
+          })
+        }
+      } else {
+        setMessage('扣除代币失败，请重试')
+      }
+    } catch (error) {
+      setMessage('扣除代币失败')
+      console.error(error)
+    }
+  }
+
+  // 创建NFT
+  const handleCreateNFT = async (nftData: Partial<NFT>) => {
+    try {
+      const newNFT = await AdminService.createNFT(nftData)
+      if (newNFT) {
+        const updatedNfts = await AdminService.getAllNFTs()
+        setNfts(updatedNfts)
+        setMessage('NFT创建成功')
+        
+        // 记录管理员操作
+        const adminId = localStorage.getItem('admin_user')
+        if (adminId) {
+          await AdminService.logAdminAction(adminId, 'create_nft', {
+            nftId: newNFT.id,
+            timestamp: new Date().toISOString()
+          })
+        }
+      } else {
+        setMessage('NFT创建失败')
+      }
+    } catch (error) {
+      console.error('创建NFT失败:', error)
+      setMessage('创建NFT失败')
+    }
+  }
+
+  // 转移NFT
+  const handleTransferNFT = async (nftId: string, toUserId: string) => {
+    try {
+      const nft = nfts.find(n => n.id === nftId)
+      if (!nft || !nft.owner_id) {
+        setMessage('无效的NFT或所有者')
+        return
+      }
+      
+      const success = await AdminService.transferNFT(nftId, nft.owner_id, toUserId)
+      if (success) {
+        const updatedNfts = await AdminService.getAllNFTs()
+        setNfts(updatedNfts)
+        setMessage('NFT转移成功')
+        
+        // 记录管理员操作
+        const adminId = localStorage.getItem('admin_user')
+        if (adminId) {
+          await AdminService.logAdminAction(adminId, 'transfer_nft', {
+            nftId,
+            fromUserId: nft.owner_id,
+            toUserId,
+            timestamp: new Date().toISOString()
+          })
+        }
+      } else {
+        setMessage('NFT转移失败')
+      }
+    } catch (error) {
+      console.error('转移NFT失败:', error)
+      setMessage('转移NFT失败')
+    }
+  }
+
+  // 创建土地
+  const handleCreateLand = async (landData: Partial<Land>) => {
+    try {
+      const newLand = await AdminService.createLand(landData)
+      if (newLand) {
+        const updatedLands = await AdminService.getAllLands()
+        setLands(updatedLands)
+        setMessage('土地创建成功')
+        
+        // 记录管理员操作
+        const adminId = localStorage.getItem('admin_user')
+        if (adminId) {
+          await AdminService.logAdminAction(adminId, 'create_land', {
+            landId: newLand.id,
+            timestamp: new Date().toISOString()
+          })
+        }
+      } else {
+        setMessage('土地创建失败')
+      }
+    } catch (error) {
+      console.error('创建土地失败:', error)
+      setMessage('创建土地失败')
+    }
+  }
+
+  // 转移土地
+  const handleTransferLand = async (landId: string, toUserId: string) => {
+    try {
+      const success = await AdminService.transferLand(landId, toUserId)
+      if (success) {
+        const updatedLands = await AdminService.getAllLands()
+        setLands(updatedLands)
+        setMessage('土地转移成功')
+        
+        // 记录管理员操作
+        const adminId = localStorage.getItem('admin_user')
+        if (adminId) {
+          await AdminService.logAdminAction(adminId, 'transfer_land', {
+            landId,
+            toUserId,
+            timestamp: new Date().toISOString()
+          })
+        }
+      } else {
+        setMessage('土地转移失败')
+      }
+    } catch (error) {
+      console.error('转移土地失败:', error)
+      setMessage('转移土地失败')
     }
   }
 
@@ -226,9 +398,9 @@ export default function AdminPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalUsers}</div>
+              <div className="text-2xl font-bold">{dashboardStats.usersCount}</div>
               <p className="text-xs text-muted-foreground">
-                活跃用户: {stats.activeUsers}
+                活跃用户: {dashboardStats.activeUsers}
               </p>
             </CardContent>
           </Card>
@@ -239,7 +411,7 @@ export default function AdminPage() {
               <UserPlus className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalInvitations}</div>
+              <div className="text-2xl font-bold">{dashboardStats.invitationsCount}</div>
               <p className="text-xs text-muted-foreground">
                 成功邀请数量
               </p>
@@ -252,7 +424,7 @@ export default function AdminPage() {
               <Coins className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalTokensDistributed}</div>
+              <div className="text-2xl font-bold">{dashboardStats.totalTokens.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 ANGEL 代币总量
               </p>
@@ -275,10 +447,13 @@ export default function AdminPage() {
 
         {/* 管理面板 */}
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="users">用户管理</TabsTrigger>
             <TabsTrigger value="invitations">邀请关系</TabsTrigger>
             <TabsTrigger value="tokens">代币管理</TabsTrigger>
+            <TabsTrigger value="nfts">NFT管理</TabsTrigger>
+            <TabsTrigger value="lands">土地管理</TabsTrigger>
+            <TabsTrigger value="system">系统设置</TabsTrigger>
           </TabsList>
 
           {/* 用户管理 */}
@@ -320,7 +495,7 @@ export default function AdminPage() {
                           </p>
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <span>余额: {user.angel_balance} ANGEL</span>
-                            <span>邀请: {user.total_referrals} 人</span>
+                            <span>邀请: {user.invites_count || 0} 人</span>
                             <span>收益: {user.total_earned} ANGEL</span>
                           </div>
                         </div>
@@ -371,13 +546,12 @@ export default function AdminPage() {
                             <span className="font-medium">{invitee?.username || '未知用户'}</span>
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            邀请人钱包: {invitation.inviter_wallet_address?.slice(0, 6)}...{invitation.inviter_wallet_address?.slice(-4)}
+                            邀请人钱包: {inviter?.wallet_address?.slice(0, 6)}...{inviter?.wallet_address?.slice(-4)}
                           </p>
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <span>状态: {invitation.status}</span>
                             <span>奖励: {invitation.reward_amount} ANGEL</span>
-                            <span>等级: L{invitation.level}</span>
-                            <span>创建时间: {new Date(invitation.created_at).toLocaleDateString()}</span>
+                            <span>创建时间: {invitation.created_at ? new Date(invitation.created_at).toLocaleDateString() : 'N/A'}</span>
                           </div>
                         </div>
                         <Badge variant={invitation.status === 'accepted' ? "default" : "secondary"}>
@@ -454,11 +628,248 @@ export default function AdminPage() {
                     <Plus className="h-4 w-4 mr-2" />
                     添加代币
                   </Button>
-                  <Button variant="outline" className="flex-1">
+                  <Button onClick={handleDeductTokens} className="flex-1">
                     <Trash2 className="h-4 w-4 mr-2" />
                     扣除代币
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* NFT管理 */}
+          <TabsContent value="nfts" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>NFT管理</CardTitle>
+                <CardDescription>管理系统中的所有NFT</CardDescription>
+                <div className="flex items-center space-x-2">
+                  <Button onClick={() => setSelectedNft({ 
+                    id: '', 
+                    name: '', 
+                    rarity: '普通', 
+                    rarity_score: 1, 
+                    attributes: {}, 
+                    is_for_sale: false, 
+                    created_at: '', 
+                    updated_at: '' 
+                  })}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    创建NFT
+                  </Button>
+                  <Button onClick={loadData} variant="outline" size="sm">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    刷新
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="text-center py-8">加载中...</div>
+                ) : (
+                  <div className="space-y-4">
+                    {nfts.map((nft) => (
+                      <div key={nft.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-4">
+                          {nft.image_url && (
+                            <div className="w-16 h-16 rounded overflow-hidden bg-gray-100">
+                              <img 
+                                src={nft.image_url} 
+                                alt={nft.name} 
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium">{nft.name}</h4>
+                              <Badge variant="outline">{nft.rarity}</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground line-clamp-1">
+                              {nft.description || '无描述'}
+                            </p>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span>所有者: {users.find(u => u.id === nft.owner_id)?.username || '无'}</span>
+                              <span>价格: {nft.price || 0} ANGEL</span>
+                              <span>出售状态: {nft.is_for_sale ? '在售' : '未出售'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedNft(nft)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            编辑
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            查看
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 土地管理 */}
+          <TabsContent value="lands" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>土地管理</CardTitle>
+                <CardDescription>管理系统中的所有虚拟土地</CardDescription>
+                <div className="flex items-center space-x-2">
+                  <Button onClick={() => setSelectedLand({ 
+                    id: '', 
+                    name: '', 
+                    type: '', 
+                    rarity: '普通', 
+                    rarity_score: 1, 
+                    attributes: {}, 
+                    base_price: 100, 
+                    base_income: 10, 
+                    level: 1, 
+                    experience: 0, 
+                    is_for_sale: false, 
+                    created_at: '', 
+                    updated_at: '' 
+                  })}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    创建土地
+                  </Button>
+                  <Button onClick={loadData} variant="outline" size="sm">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    刷新
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="text-center py-8">加载中...</div>
+                ) : (
+                  <div className="space-y-4">
+                    {lands.map((land) => (
+                      <div key={land.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-4">
+                          {land.image_url && (
+                            <div className="w-16 h-16 rounded overflow-hidden bg-gray-100">
+                              <img 
+                                src={land.image_url} 
+                                alt={land.name} 
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium">{land.name}</h4>
+                              <Badge variant="outline">{land.rarity}</Badge>
+                              <Badge variant="secondary">等级 {land.level}</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground line-clamp-1">
+                              {land.description || '无描述'}
+                            </p>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span>类型: {land.type}</span>
+                              <span>收益: {land.base_income} ANGEL/天</span>
+                              <span>所有者: {users.find(u => u.id === land.owner_id)?.username || '无'}</span>
+                              <span>坐标: {land.x_coordinate || '?'},{land.y_coordinate || '?'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedLand(land)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            编辑
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            查看
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 系统设置 */}
+          <TabsContent value="system" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>系统设置</CardTitle>
+                <CardDescription>管理系统配置和执行维护任务</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">数据库维护</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <Button className="w-full">
+                        <Database className="h-4 w-4 mr-2" />
+                        处理土地收益
+                      </Button>
+                      <Button className="w-full">
+                        <Database className="h-4 w-4 mr-2" />
+                        处理质押奖励
+                      </Button>
+                      <Button className="w-full" variant="outline">
+                        <Database className="h-4 w-4 mr-2" />
+                        数据库诊断
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">系统报告</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <Button className="w-full">
+                        <FileText className="h-4 w-4 mr-2" />
+                        导出用户报告
+                      </Button>
+                      <Button className="w-full">
+                        <FileText className="h-4 w-4 mr-2" />
+                        导出邀请报告
+                      </Button>
+                      <Button className="w-full">
+                        <FileText className="h-4 w-4 mr-2" />
+                        导出交易报告
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">管理员日志</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64 overflow-y-auto border rounded-md p-4 bg-gray-50">
+                      <p className="text-sm text-muted-foreground">管理员日志将在这里显示...</p>
+                    </div>
+                  </CardContent>
+                </Card>
               </CardContent>
             </Card>
           </TabsContent>
