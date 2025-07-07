@@ -278,6 +278,17 @@ export async function processInviteRegistration(newUserWallet: string, inviterWa
     
     const now = new Date().toISOString();
     
+    // 更新新用户的 referred_by 字段
+    await db.collection('users').updateOne(
+      { _id: new ObjectId(newUser.id) },
+      { 
+        $set: { 
+          referred_by: inviter.id,
+          updated_at: now 
+        }
+      }
+    );
+    
     // 创建邀请记录
     const invitation: Invitation = {
       inviter_id: inviter.id,

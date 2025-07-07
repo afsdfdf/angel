@@ -102,15 +102,23 @@ export default function InvitePage() {
           inviterWallet: inviter.wallet_address
         })
         
-        // 确保用户已经创建
+        // 确保用户已经创建，如果没有创建则创建用户并设置邀请关系
         console.log('🔄 确认用户已创建')
-        const createdUser = await DatabaseClientApi.getUserByWalletAddress(user.wallet_address)
+        let createdUser = await DatabaseClientApi.getUserByWalletAddress(user.wallet_address)
         
         if (!createdUser) {
-          console.error('❌ 用户未被创建')
-          setError("用户创建失败，请重试")
-          setIsRegistering(false)
-          return
+          console.log('🔄 创建新用户并设置邀请关系')
+          createdUser = await DatabaseClientApi.createUser({
+            wallet_address: user.wallet_address.toLowerCase(),
+            referred_by: inviter.id
+          })
+          
+          if (!createdUser) {
+            console.error('❌ 用户创建失败')
+            setError("用户创建失败，请重试")
+            setIsRegistering(false)
+            return
+          }
         }
         
         // 处理邀请注册关系

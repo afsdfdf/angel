@@ -292,9 +292,29 @@ export function WalletConnect({ onUserChange, inviterWallet }: WalletConnectProp
           // 新用户，处理邀请注册
           let success = false
           if (inviterWallet) {
-            console.log("🔄 处理邀请注册:", walletAddress, inviterWallet)
-            success = await DatabaseClientApi.processInviteRegistration(walletAddress, inviterWallet)
-            console.log("邀请注册结果:", success ? "成功" : "失败")
+            // 先创建用户，设置 referred_by 字段
+            console.log("🔄 创建新用户并设置邀请关系:", walletAddress, inviterWallet)
+            
+            // 先获取邀请人信息
+            const inviter = await DatabaseClientApi.getUserByWalletAddress(inviterWallet)
+            if (inviter && inviter.id) {
+              // 创建用户并设置邀请关系
+              const newUser = await DatabaseClientApi.createUser({
+                wallet_address: walletAddress.toLowerCase(),
+                referred_by: inviter.id
+              })
+              
+              if (newUser) {
+                // 处理邀请注册
+                console.log("🔄 处理邀请注册:", walletAddress, inviterWallet)
+                success = await DatabaseClientApi.processInviteRegistration(walletAddress, inviterWallet)
+                console.log("邀请注册结果:", success ? "成功" : "失败")
+              } else {
+                console.error("❌ 创建用户失败")
+              }
+            } else {
+              console.error("❌ 获取邀请人信息失败")
+            }
           } else {
             // 没有邀请人，直接创建用户
             console.log("🔄 创建新用户:", walletAddress)
