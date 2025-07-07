@@ -2,11 +2,11 @@
 
 /**
  * MongoDB Atlas 配置文件
- * 已配置为使用实际连接信息
+ * 直接使用硬编码连接信息
  */
 
 export const mongodbConfig = {
-  // MongoDB连接URI (已更新为实际连接字符串)
+  // MongoDB连接URI (硬编码连接字符串)
   uri: "mongodb+srv://fortunaeduardo364:changcheng@cluster0.m6dnajo.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
   
   // 数据库名称

@@ -2,7 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    esmExternals: true,
+    serverComponentsExternalPackages: ['mongodb'],
+    esmExternals: 'loose',
   },
   serverExternalPackages: ['mongodb', 'mongoose'],
   typescript: {
@@ -24,18 +25,30 @@ const nextConfig = {
     // number of pages that should be kept simultaneously without being disposed
     pagesBufferLength: 2,
   },
-  webpack: (config) => {
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-      net: false,
-      tls: false,
-      crypto: false,
-      child_process: false,
-      mongodb: false
-    };
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // 客户端侧配置
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+        child_process: false,
+        mongodb: false
+      };
+    }
     
-    config.externals.push('pino-pretty', 'lokijs', 'encoding', 'mongodb');
+    // 确保这些包不会被客户端打包
+    if (!isServer) {
+      config.externals = [
+        ...(config.externals || []),
+        'pino-pretty',
+        'lokijs',
+        'encoding',
+        'mongodb'
+      ];
+    }
     
     return config;
   },
