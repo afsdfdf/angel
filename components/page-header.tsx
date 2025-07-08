@@ -7,6 +7,7 @@ import { WalletConnect } from "@/components/wallet-connect"
 import { MenuButton } from "@/components/sidebar-nav"
 import { useNavigation } from "@/components/navigation-context"
 import { AngelLogo } from "@/components/angel-logo"
+import { TelegramIcon } from "@/components/telegram-icon"
 import type { LucideIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
@@ -97,8 +98,20 @@ export function PageHeader({
             </div>
           </div>
 
-          {/* 右侧：钱包连接按钮 */}
+          {/* 右侧：Telegram链接 + 钱包连接按钮 */}
           <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Telegram链接按钮 */}
+            <Button
+              variant="ghost"
+              size="icon"
+              asChild
+              className="w-10 h-10 rounded-xl text-muted-foreground hover:text-angel-primary hover:bg-secondary flex-shrink-0 touch-feedback"
+            >
+              <a href="https://t.me/angecoin1" target="_blank" rel="noopener noreferrer" aria-label="Join our Telegram">
+                <TelegramIcon className="w-5 h-5" />
+              </a>
+            </Button>
+            
             {/* 钱包连接按钮 - 始终显示 */}
             <div className="ml-1">
               <WalletConnect onUserChange={onUserChange} />
